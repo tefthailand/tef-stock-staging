@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<title>คำขอของฉัน — TEF</title>
+<!-- v33: หน้าเว็บบน GitHub Pages เรียกหลังบ้านผ่าน assets/tef-api.js (google.script.run แบบเดิม) -->
+<script src="assets/config.js"></script>
+<script src="assets/tef-api.js"></script>
+<script src="assets/i18n.js"></script>
+<script src="assets/tef-shell.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --tef-navy:#0A2342; --tef-navy-deep:#061A33; --tef-ocean:#1B7FA8; --tef-ocean-text:#176887;
+  --tef-ocean-light:#EAF6FC; --tef-bg:#F2F8FC; --tef-card:#FFFFFF; --tef-text:#0E2033;
+  --tef-text-soft:#50677D; --tef-border:#CFE2EF; --tef-good:#1A7F5A; --tef-warn:#946202; --tef-danger:#B3341F;
+  --tef-font:"IBM Plex Sans Thai","Noto Sans Thai",system-ui,sans-serif; --tef-font-head:"Kanit","IBM Plex Sans Thai",sans-serif;
+  --tef-radius:10px;
+}
+body{background:var(--tef-bg);color:var(--tef-text);font-family:var(--tef-font);font-size:15px}
+.tef-wrap{max-width:720px;margin:0 auto;padding:0 16px 56px}
+.tef-header{background:linear-gradient(160deg,var(--tef-navy-deep) 0%,var(--tef-navy) 60%,#123A63 100%);
+  color:#EAF6FC;padding:24px 16px 20px;border-bottom:3px solid var(--tef-ocean);margin-bottom:22px}
+.tef-header .inner{max-width:720px;margin:0 auto}
+.tef-header .org{font-size:16px;letter-spacing:.02em;color:#fff;font-weight:600;margin-bottom:6px}
+.tef-header h1{font-family:var(--tef-font-head);font-weight:600;font-size:clamp(20px,4vw,27px);margin:0;color:#fff}
+.tef-header .who{color:#A8CFE4;font-size:12.5px;margin:5px 0 0}
+.tef-card{background:var(--tef-card);border:1px solid var(--tef-border);border-radius:var(--tef-radius);padding:20px;margin-bottom:16px}
+.tef-card h2{font-family:var(--tef-font-head);font-weight:600;font-size:16px;margin:0 0 15px;display:flex;align-items:center;gap:9px}
+.tef-card h2::before{content:"";width:3px;height:16px;background:var(--tef-ocean);border-radius:2px;flex:none}
+.form-label{font-size:12.5px;font-weight:500;color:var(--tef-text-soft);margin-bottom:4px}
+.form-label .req{color:var(--tef-danger)}
+.form-control{border-color:var(--tef-border);border-radius:8px;font-size:14.5px;padding:9px 11px}
+.form-control:focus{border-color:var(--tef-ocean);box-shadow:0 0 0 .18rem rgba(27,127,168,.18)}
+.form-control[readonly]{background:var(--tef-ocean-light);font-weight:600}
+.btn-tef{background:var(--tef-navy);color:#fff;border:0;border-radius:8px;padding:10px 22px;font-family:var(--tef-font-head);font-weight:500;font-size:14.5px;text-decoration:none;display:inline-block}
+.btn-tef:hover{background:var(--tef-ocean);color:#fff}
+.btn-tef:disabled{opacity:.6}
+.hint{font-size:12.5px;color:var(--tef-text-soft)}
+.chip{display:inline-block;font-size:11.5px;padding:2px 9px;border-radius:999px;background:var(--tef-ocean-light);color:var(--tef-ocean-text);font-weight:500}
+.chip.warn{background:color-mix(in srgb,var(--tef-warn) 14%,transparent);color:var(--tef-warn)}
+.chip.good{background:color-mix(in srgb,var(--tef-good) 14%,transparent);color:var(--tef-good)}
+.chip.bad{background:color-mix(in srgb,var(--tef-danger) 14%,transparent);color:var(--tef-danger)}
+.msg{border-radius:8px;padding:13px 16px;margin-top:14px;font-size:14px;display:none}
+.msg.err{display:block;background:color-mix(in srgb,var(--tef-danger) 10%,transparent);border:1px solid color-mix(in srgb,var(--tef-danger) 35%,transparent);color:var(--tef-danger)}
+.msg.ok{display:block;background:color-mix(in srgb,var(--tef-good) 12%,transparent);border:1px solid color-mix(in srgb,var(--tef-good) 35%,transparent)}
+.want{display:flex;flex-wrap:wrap;gap:10px}
+.want label{flex:1;min-width:150px;border:1px solid var(--tef-border);border-radius:8px;padding:10px 12px;cursor:pointer;display:flex;gap:9px;align-items:center;background:#fff;font-size:14px}
+.want label:has(input:checked){border-color:var(--tef-ocean);background:var(--tef-ocean-light)}
+.lines{overflow-x:auto;border:1px solid var(--tef-border);border-radius:8px;margin-top:10px}
+.lines table{width:100%;border-collapse:collapse;font-size:13.5px;margin:0}
+.lines th{background:var(--tef-navy);color:#DCEEF8;font-size:11.5px;font-weight:500;padding:8px 11px;text-align:left;white-space:nowrap}
+.lines td{padding:7px 11px;border-top:1px solid var(--tef-border)}
+.lines td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="tef-header"><div class="inner">
+  <div class="org" id="org">สมาคมกีฬาขี่ม้าแห่งประเทศไทย ในพระบรมราชูปถัมภ์</div>
+  <h1>คำขอของฉัน</h1>
+  <p class="who" id="who">กำลังโหลด…</p>
+</div></div>
+
+<div class="tef-wrap">
+  <div class="mb-3"><a class="btn-tef" id="backBtn" target="_top" href="#">กลับหน้าเบิก / แจ้งคืน</a></div>
+  <div id="list"><p class="hint">กำลังโหลดรายการ…</p></div>
+</div>
+
+<script>
+const $ = i => document.getElementById(i);
+function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+var CHIP = { 'รออนุมัติ':'warn', 'อนุมัติแล้ว':'warn', 'จ่ายของออกแล้ว':'', 'คืนไม่ครบ':'warn', 'คืนครบ':'good', 'ไม่อนุมัติ':'bad' };
+
+window.addEventListener('DOMContentLoaded', function(){
+  google.script.run.withSuccessHandler(function(u){ $('backBtn').href = u; }).appUrl();
+  google.script.run.withSuccessHandler(render).withFailureHandler(function(e){
+    $('list').innerHTML = '<div class="tef-card" style="color:var(--tef-danger)">' + esc(e.message) + '</div>';
+    $('who').textContent = '';
+  }).myRequests();
+});
+
+function render(rows){
+  $('who').textContent = '';
+  if (!rows || !rows.length){
+    $('list').innerHTML = '<div class="tef-card"><p class="mb-0">ยังไม่มีคำขอ</p></div>';
+    return;
+  }
+  $('list').innerHTML = rows.map(function(r){
+    var lines = (r.lines || []).map(function(l){
+      return '<tr><td>' + esc(l.code) + '</td><td>' + esc(l.name) + '</td><td class="num">' + l.qty + '</td><td class="num">' + l.back + '</td><td class="num">' + l.remaining + '</td></tr>';
+    }).join('');
+    return '<div class="tef-card">' +
+      '<div class="d-flex flex-wrap justify-content-between gap-2 align-items-center">' +
+        '<h2 class="mb-0">' + esc(r.id) + '</h2>' +
+        '<span class="chip ' + (CHIP[r.status] || '') + '">' + esc(r.label) + '</span>' +
+      '</div>' +
+      '<p class="hint mt-2 mb-1">สร้างเมื่อ ' + esc(r.created) + (r.dueDate ? ' · กำหนดคืน ' + esc(r.dueDate) : '') + '</p>' +
+      (r.purpose ? '<p class="mb-1">' + esc(r.purpose) + '</p>' : '') +
+      (r.returnPending ? '<p class="mb-1"><span class="chip warn">มีคำขอคืน ' + r.returnPending + ' ฉบับ รอแอดมินตรวจรับ</span></p>' : '') +
+      '<div class="lines"><table><thead><tr><th>รหัส</th><th>รายการ</th><th>เบิก</th><th>คืนแล้ว</th><th>ค้างคืน</th></tr></thead><tbody>' + lines + '</tbody></table></div>' +
+      '</div>';
+  }).join('');
+}
+</script>
+</body>
+</html>

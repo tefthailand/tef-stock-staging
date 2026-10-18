@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>เข้าสู่ระบบ — TEF</title>
+<script src="assets/config.js"></script>
+<script src="assets/tef-api.js"></script>
+<script src="assets/i18n.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- หน้าเข้าสู่ระบบ TEF Stock (v33) · ปุ่ม Sign in with Google · รหัสทางอีเมล (ทางสำรอง) · ตัวพาไปหน้า ?page=... -->
+<style>
+:root{ --navy:#0A2342; --navy2:#1d3f85; --ink:#0f172a; --muted:#52607a; --line:#dfe5ee; --ground:#f2f5f9; --card:#fff;
+       --okbg:#e9f7f0; --okfg:#09614a; --warnbg:#fdf4e3; --warnfg:#7a4a07; --badbg:#fdecec; --badfg:#a1121a; }
+*{box-sizing:border-box}
+body{margin:0;font-family:"IBM Plex Sans Thai","Noto Sans Thai",system-ui,sans-serif;color:var(--ink);background:var(--ground);min-height:100vh}
+header{background:var(--navy);color:#fff;padding:18px 20px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+header .org{font-size:13px;color:#a9bcdc}
+header .app{font-size:20px;font-weight:700}
+header a{color:#cfe0f5;text-decoration:none;font-size:13px;padding:6px 10px;border:1px solid rgba(255,255,255,.3);border-radius:7px}
+.env{background:#f5b301;color:var(--navy);font-weight:700;font-size:12px;padding:3px 8px;border-radius:6px;margin-left:8px;vertical-align:middle}
+main{max-width:520px;margin:0 auto;padding:28px 16px 40px;display:flex;flex-direction:column;gap:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:16px}
+h1{margin:0;font-size:22px;color:var(--navy)}
+.lead{margin:0;font-size:14.5px;color:var(--muted);line-height:1.6}
+.acct{border-radius:10px;padding:12px 14px;font-size:14px;line-height:1.6}
+.acct.ok{background:var(--okbg);color:var(--okfg)} .acct.warn{background:var(--warnbg);color:var(--warnfg)} .acct.bad{background:var(--badbg);color:var(--badfg)}
+.gbtn{display:flex;justify-content:center;min-height:44px}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;min-height:48px;border-radius:10px;font:600 15.5px/1.2 inherit;font-family:inherit;text-decoration:none;padding:0 18px}
+.btn.go{background:var(--navy);color:#fff}
+.btn.alt{background:#fff;color:var(--ink);border:1px solid #c3cdde}
+.btn:focus-visible{outline:3px solid var(--navy2);outline-offset:2px}
+.or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;text-align:center}
+.or:before,.or:after{content:"";flex:1;height:1px;background:var(--line)}
+.help{display:flex;flex-direction:column;gap:12px;font-size:14px;line-height:1.6;margin:0;padding:0;list-style:none}
+.help li{display:flex;gap:10px}
+.help .k{flex:none;min-width:116px;font-weight:600;color:var(--navy)}
+.foot{font-size:13px;color:var(--muted);text-align:center;margin:0;line-height:1.8}
+.foot a{color:var(--navy2)}
+.otp{display:flex;flex-direction:column;gap:12px;margin:0}
+.f{display:flex;flex-direction:column;gap:6px}
+.f label{font-size:13.5px;color:var(--muted)}
+.f input{font:inherit;font-size:16px;padding:12px 14px;min-height:48px;border:1px solid #c3cdde;border-radius:10px;width:100%;color:var(--ink);background:#fff}
+#oCode{font-size:24px;letter-spacing:.35em;text-align:center}
+button.btn{border:0;cursor:pointer;width:100%}
+button.btn:disabled{opacity:.6;cursor:default}
+.msg{margin:0;font-size:14px;min-height:20px;color:var(--muted);line-height:1.5}
+.msg.bad{color:var(--badfg)} .msg.ok{color:var(--okfg)}
+.hide{display:none!important}
+@media (max-width:420px){ .help li{flex-direction:column;gap:2px} .help .k{min-width:0} }
+</style>
+</head>
+<body>
+<header>
+  <div><div class="org">สมาคมกีฬาขี่ม้าแห่งประเทศไทย ในพระบรมราชูปถัมภ์</div><div class="app">TEF Stock · ระบบคลังพัสดุ<span class="env hide" id="env">ชุดทดสอบ</span></div></div>
+  <a id="tefLang" data-noi18n href="#">English</a>
+</header>
+
+<main>
+  <section class="card" aria-labelledby="h1">
+    <h1 id="h1">เข้าสู่ระบบ</h1>
+    <p class="lead">ใช้บัญชี Google ของคุณ เจ้าหน้าที่ใช้บัญชีงาน @tefthailand.com สโมสรและผู้ใช้ภายนอกใช้ Gmail</p>
+    <div class="acct hide" id="state" role="status"></div>
+
+    <div class="acct warn hide" id="line">
+      คุณเปิดจากแอป LINE ซึ่ง Google ไม่อนุญาตให้ลงชื่อเข้าใช้ในแอป<br>
+      <a class="btn go" id="lineGo" href="#" style="margin-top:10px">เปิดในเบราว์เซอร์</a>
+      <span>หรือใช้รหัสทางอีเมลด้านล่าง</span>
+    </div>
+
+    <div class="gbtn" id="gBtn"></div>
+    <p class="msg" id="gMsg" role="status"></p>
+
+    <div class="or">ไม่มีบัญชี Google หรือปุ่มใช้ไม่ได้ รับรหัสทางอีเมลแทน</div>
+    <form class="otp" id="otpForm" autocomplete="on">
+      <div class="f"><label for="oMail">อีเมลของคุณ</label>
+        <input id="oMail" type="email" inputmode="email" autocomplete="email" placeholder="name@tefthailand.com หรือ name@gmail.com" required></div>
+      <button class="btn alt" type="submit" id="oSend">ส่งรหัสเข้าอีเมล</button>
+      <div class="f hide" id="oCodeBox"><label for="oCode">รหัส 6 หลักจากอีเมล</label>
+        <input id="oCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="••••••"></div>
+      <button class="btn go hide" type="button" id="oVerify">ยืนยันรหัส แล้วเข้าระบบ</button>
+      <p class="msg" id="oMsg" role="status"></p>
+    </form>
+  </section>
+
+  <section class="card" aria-labelledby="h2">
+    <h1 id="h2" style="font-size:17px">เข้าครั้งแรกต้องทำอะไร</h1>
+    <ul class="help">
+      <li><span class="k">เจ้าหน้าที่สมาคม</span><span>เข้าด้วยอีเมล @tefthailand.com ใช้งานได้ทันที</span></li>
+      <li><span class="k">สโมสร · ภายนอก</span><span>เข้าด้วย Gmail ครั้งแรกจะมีแบบสอบถามสั้นๆ กรอกครั้งเดียว แล้วขอเบิกและแจ้งคืนได้</span></li>
+      <li><span class="k">ผู้ดูแลระบบ</span><span>ต้องให้ผู้ดูแลระบบเพิ่มบัญชีในทะเบียนผู้ใช้ก่อน</span></li>
+    </ul>
+  </section>
+
+  <p class="foot">มีปัญหาการเข้าระบบ ติดต่อ phalot.k@tefthailand.com<br><a href="privacy.html">นโยบายความเป็นส่วนตัว</a></p>
+</main>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var T = function (s) { return window.TEF_T ? window.TEF_T(s) : s; };
+  var C = window.TEF_CONFIG || {}, A = window.TEFAPI, Auth = window.TEFAuth;
+  var Q = new URLSearchParams(location.search);
+  var page = Q.get('page') || '', next = Q.get('next') || '', q = Q.get('q') || '';
+  var SKIP = { page: 1, next: 1, q: 1, err: 1, out: 1, 'switch': 1, t: 1, logout: 1, openExternalBrowser: 1 };
+
+  if (C.ENV === 'staging') $('env').classList.remove('hide');
+  $('tefLang').href = location.href;
+  $('tefLang').textContent = window.TEF_LANG === 'en' ? 'ภาษาไทย' : 'English';
+
+  function state(t, cls) { var s = $('state'); s.textContent = T(t); s.className = 'acct ' + (cls || 'ok'); }
+  function say(id, t, cls) { var m = $(id); m.textContent = T(t); m.className = 'msg' + (cls ? ' ' + cls : ''); }
+
+  // ลิงก์เดิมแบบ ?page=index&add=... → พาค่าอื่นไปด้วย
+  function passThrough() {
+    var o = new URLSearchParams();
+    Q.forEach(function (v, k) { if (!SKIP[k]) o.append(k, v); });
+    return o.toString();
+  }
+  function target(me) {
+    if (me.role === 'EXTERNAL_NEW') return A.url('survey');
+    var k = next || (page !== 'login' ? page : '');
+    if (k && A.PAGES[k] && (me.pages || []).indexOf(k) >= 0) return A.url(k, next ? q : passThrough());
+    return A.url(me.home || 'home');
+  }
+  function proceed() {
+    state('กำลังตรวจสิทธิ์…', 'ok');
+    Auth.me(true).then(function (me) { location.replace(target(me)); }, function (e) {
+      if (e && e.code === 'NO_ACCESS') {
+        state('บัญชีนี้ยังไม่มีสิทธิ์เข้าระบบ กรุณาเข้าด้วยบัญชีอื่น หรือติดต่อผู้ดูแลระบบ', 'warn');
+        Auth.clear();
+      } else if (e && /^AUTH_/.test(e.code || '')) { Auth.clear(); state('กรุณาเข้าสู่ระบบอีกครั้ง', 'warn'); }
+      else state(String((e && e.message) || e), 'bad');
+    });
+  }
+
+  // เปิดจากแอป LINE: Google บล็อกการลงชื่อในเบราว์เซอร์ของแอป
+  if (/\bLine\//i.test(navigator.userAgent)) {
+    $('line').classList.remove('hide');
+    $('lineGo').href = location.href + (location.search ? '&' : '?') + 'openExternalBrowser=1';
+  }
+
+  var err = Q.get('err');
+  if (Q.get('out')) { Auth.clear(); state('ออกจากระบบแล้ว'); }
+  else if (Q.get('switch')) { Auth.clear(); state('เลือกบัญชีที่จะใช้ แล้วเข้าสู่ระบบ'); }
+  else if (err === 'noaccess') { Auth.clear(); state('บัญชีนี้ยังไม่มีสิทธิ์เข้าระบบ กรุณาเข้าด้วยบัญชีอื่น หรือติดต่อผู้ดูแลระบบ', 'warn'); }
+  else if (Auth.signedIn()) proceed();
+
+  // ปุ่ม Sign in with Google
+  Auth.onSignIn = proceed;
+  Auth.renderButton($('gBtn'), window.TEF_LANG).catch(function (e) { say('gMsg', e.message, 'bad'); });
+
+  // ทางสำรอง: รหัสทางอีเมล
+  $('otpForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var mail = $('oMail').value.trim(); if (!mail) return;
+    $('oSend').disabled = true; say('oMsg', 'กำลังส่งรหัส…');
+    Auth.otpRequest(mail).then(function (r) {
+      $('oSend').disabled = false; $('oSend').textContent = T('ส่งรหัสอีกครั้ง');
+      $('oCodeBox').classList.remove('hide'); $('oVerify').classList.remove('hide'); $('oCode').focus();
+      say('oMsg', 'ส่งรหัสไปที่ ' + r.email + ' แล้ว ดูในกล่องจดหมาย (หรือจดหมายขยะ) รหัสใช้ได้ 10 นาที', 'ok');
+    }, function (err) { $('oSend').disabled = false; say('oMsg', String((err && err.message) || err), 'bad'); });
+  });
+  function verify() {
+    var code = $('oCode').value.replace(/\D/g, ''); if (code.length !== 6) { say('oMsg', 'กรุณาใส่รหัส 6 หลัก', 'bad'); return; }
+    $('oVerify').disabled = true; say('oMsg', 'กำลังตรวจรหัส…');
+    Auth.otpVerify($('oMail').value.trim(), code).then(function () { $('oVerify').disabled = false; proceed(); },
+      function (err) { $('oVerify').disabled = false; say('oMsg', String((err && err.message) || err), 'bad'); });
+  }
+  $('oVerify').addEventListener('click', verify);
+  $('oCode').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); verify(); } });
+})();
+</script>
+</body>
+</html>
