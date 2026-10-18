@@ -292,6 +292,8 @@ function renderReview(app, list){
     t.appendChild(document.createTextNode('  ' + r.requester + (r.org ? ' · ' + r.org : '')));
     main.appendChild(t);
     main.appendChild(el('div', 'meta', 'ส่งเมื่อ ' + r.created + (r.dueDate ? ' · กำหนดคืน ' + r.dueDate : '') + (r.purpose ? ' · ' + r.purpose : '')));
+    if (r.file) { var lf = el('div', 'signs'); var la = el('a', 'sg ok', 'ดูหนังสือที่แนบ'); la.href = r.file; la.target = '_blank'; la.rel = 'noopener'; lf.appendChild(la); main.appendChild(lf); }
+    else if (r.kind === 'จ่ายออก' && r.org) main.appendChild(el('div', 'signs')).appendChild(el('span', 'sg bad', 'ไม่มีหนังสือแนบ'));
     var ul = el('ul', 'lines');
     (r.lines || []).forEach(function(l){ var li = el('li', l.short ? 'short' : null, l.name + ' × ' + l.qty + (l.short ? '  (ของว่างไม่พอ)' : '')); ul.appendChild(li); });
     main.appendChild(ul);

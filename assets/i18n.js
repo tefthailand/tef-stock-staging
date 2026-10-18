@@ -12,6 +12,12 @@ window.TEF_LANG = LANG;
 
 var D = {
 // ── v34: workflow เบิก-คืน / จ่ายออก ──
+'จ่ายออกให้สโมสรหรือหน่วยงานภายนอก: เลือกประเภท ภายนอกองค์กร ใส่ชื่อหน่วยงาน และแนบหนังสือขอรับการสนับสนุน': 'Issuing to a club or outside organization: choose External, enter the organization and attach its support request letter',
+'จ่ายออกให้หน่วยงานภายนอก กรุณาระบุชื่อหน่วยงาน': 'Issuing to an outside organization: please enter the organization name',
+'จ่ายออกให้หน่วยงานภายนอก ต้องแนบหนังสือขอรับการสนับสนุน (ไฟล์หรือลิงก์)': 'Issuing to an outside organization requires its support request letter (file or link)',
+'ผู้ใช้ภายนอกขอจ่ายออกเองไม่ได้ กรุณาทำหนังสือขอรับการสนับสนุนถึงสมาคม เจ้าหน้าที่จะทำเรื่องให้': 'External users cannot request an issue directly. Please send a support request letter to the Federation; staff will file it for you.',
+'ดูหนังสือที่แนบ': 'View attached letter',
+'ไม่มีหนังสือแนบ': 'No letter attached',
 'ลักษณะคำขอ': 'Request type',
 'เบิก-คืน': 'Borrow & return',
 'จ่ายออก': 'Issue (no return)',
