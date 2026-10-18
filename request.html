@@ -106,6 +106,12 @@ body{background:var(--tef-bg);color:var(--tef-text);font-family:var(--tef-font);
 .uch{display:inline-block;border:1px solid var(--tef-border);border-radius:999px;padding:3px 10px;margin:3px 4px 3px 0;font-size:12.5px;cursor:pointer;background:#fff;user-select:none}
 .uch.on{background:#2AA8E0;border-color:#2AA8E0;color:#fff}
 .uch.d{background:#F59E0B;border-color:#F59E0B;color:#fff}
+.kind-pick{display:flex;gap:10px;flex-wrap:wrap}
+.kind-opt{flex:1 1 220px;display:flex;gap:10px;align-items:flex-start;border:1px solid #c9d6e8;border-radius:10px;padding:10px 12px;cursor:pointer;background:#fff}
+.kind-opt input{margin-top:5px}
+.kind-opt b{display:block}
+.kind-opt small{color:#5b6b80}
+.kind-opt:has(input:checked){border-color:#0A2342;box-shadow:0 0 0 2px rgba(10,35,66,.12)}
 </style>
 </head>
 <body>
@@ -170,6 +176,13 @@ body{background:var(--tef-bg);color:var(--tef-text);font-family:var(--tef-font);
   <div class="tef-card" id="formReq">
     <h2>รายละเอียดการเบิก</h2>
     <div class="row g-3">
+      <div class="col-12">
+        <span class="form-label d-block">ลักษณะคำขอ</span>
+        <div class="kind-pick" role="radiogroup" aria-label="ลักษณะคำขอ">
+          <label class="kind-opt"><input type="radio" name="rKind" id="rKindBorrow" value="เบิก-คืน" checked onchange="syncKind()"><span><b>เบิก-คืน</b><small>ยืมไปใช้แล้วนำมาคืน</small></span></label>
+          <label class="kind-opt"><input type="radio" name="rKind" id="rKindGive" value="จ่ายออก" onchange="syncKind()"><span><b>จ่ายออก</b><small>ให้ไปเลย ไม่ต้องคืน</small></span></label>
+        </div>
+      </div>
       <div class="col-12 col-md-4">
         <label class="form-label" for="rType">ประเภทการเบิก</label>
         <select class="form-select" id="rType" onchange="syncGate()">
@@ -197,7 +210,7 @@ body{background:var(--tef-bg);color:var(--tef-text);font-family:var(--tef-font);
         <label class="form-label" for="rOut">วันที่เบิก</label>
         <input class="form-control" id="rOut" type="date">
       </div>
-      <div class="col-6 col-md-3">
+      <div class="col-6 col-md-3" id="rDueWrap">
         <label class="form-label" for="rDue">กำหนดคืน</label>
         <input class="form-control" id="rDue" type="date">
       </div>
@@ -207,7 +220,7 @@ body{background:var(--tef-bg);color:var(--tef-text);font-family:var(--tef-font);
         <input class="form-control mt-2" id="rFile" placeholder="หรือวางลิงก์ Drive หนังสือขอความอนุเคราะห์">
       </div>
     </div>
-    <button class="btn btn-tef mt-3" onclick="submitReq()">สร้างเอกสารเบิก</button>
+    <button class="btn btn-tef mt-3" id="rSubmit" onclick="submitReq()">ส่งคำขอ</button>
   </div>
 
   <!-- ══════════ คืน ══════════ -->
@@ -381,6 +394,8 @@ body{background:var(--tef-bg);color:var(--tef-text);font-family:var(--tef-font);
 .pr-sign .pr-line{ border-bottom:.7pt solid var(--pr-rule); height:30pt; margin-bottom:4pt; }
 .pr-sign .pr-role{ font-weight:600; }
 .pr-sign .pr-date{ color:var(--pr-soft); font-size:9.5pt; }
+.pr-sign .pr-es{ border-bottom:.7pt solid var(--pr-rule); min-height:30pt; margin-bottom:4pt; font-size:8pt; line-height:1.35; display:flex; flex-direction:column; justify-content:flex-end; }
+.pr-sign .pr-es b{ font-size:8.5pt; }
 
 .pr-doc .pr-e{ display:block; font-size:.78em; font-weight:400; color:var(--pr-soft); line-height:1.2; }
 .pr-title .pr-e{ font-size:11pt; font-weight:600; letter-spacing:.04em; margin-top:1pt; }
@@ -450,7 +465,8 @@ var PR_EN = {
   'วันที่เบิก':'Borrow date', 'กำหนดคืน':'Due date', 'ผู้รับ':'Received by', 'ผู้จ่าย':'Issued by',
   'สถานที่':'Location', 'เพื่ออะไร':'Purpose', 'ผู้ขนย้าย':'Moved by', 'ประเภท':'Type',
   'วันที่ย้าย':'Transfer date', 'กำหนดย้ายกลับ':'Return-move date',
-  'ชั่วคราว':'Temporary', 'ถาวร':'Permanent', 'ภายในองค์กร':'Internal', 'ภายนอกองค์กร':'External'
+  'ชั่วคราว':'Temporary', 'ถาวร':'Permanent', 'ภายในองค์กร':'Internal', 'ภายนอกองค์กร':'External',
+  'ลักษณะคำขอ':'Request type', 'เบิก-คืน':'Borrow & return', 'จ่ายออก':'Issue (no return)', 'สถานะ':'Status', 'เลขที่':'No.'
 };
 
 var TEF_DOC = {
@@ -510,7 +526,8 @@ function tefFillPrint(d){
   const bi = (th, en) => e(th) + (en && en !== th ? '<span class="pr-e">' + e(en) + '</span>' : '');
   const cfg = TEF_DOC[d.kind] || TEF_DOC.req;
 
-  g('prTitle').innerHTML    = bi(cfg.title[0], cfg.title[1]);
+  const ttl = d.title || cfg.title;                                   // v34: ชื่อเอกสารตามลักษณะคำขอ
+  g('prTitle').innerHTML    = bi(ttl[0], ttl[1]);
   g('prId').textContent     = d.id || '—';
   g('prFootId').textContent = d.id || '—';
   g('prDate').textContent   = tefDate(d.date || new Date());
@@ -557,10 +574,13 @@ function tefFillPrint(d){
 
   g('prNote').innerHTML = d.note ? e(d.note) : bi(cfg.note[0], cfg.note[1]);
 
-  g('prSigns').innerHTML = cfg.signs.map(s =>
-    '<div class="pr-sign"><div class="pr-line"></div>' +
-    '<div class="pr-role">' + bi(s[0], s[1]) + '</div>' +
-    '<div class="pr-date">วันที่ / Date ……… / ……… / ………</div></div>').join('');
+  g('prSigns').innerHTML = cfg.signs.map(s => {
+    const es = d.esign && d.esign[s[0]];                               // v34: ลงนามอิเล็กทรอนิกส์แล้ว
+    return '<div class="pr-sign">' +
+      (es ? '<div class="pr-es"><b>ลงนามอิเล็กทรอนิกส์ / e-signed</b>' + e(es) + '</div>' : '<div class="pr-line"></div>') +
+      '<div class="pr-role">' + bi(s[0], s[1]) + '</div>' +
+      (es ? '' : '<div class="pr-date">วันที่ / Date ……… / ……… / ………</div>') + '</div>';
+  }).join('');
 }
 
 function tefPrint(d){
@@ -751,13 +771,36 @@ function rmLine(i){ LINES.splice(i, 1); renderLines(); drawUnits(); }
 
 function submitReq(){
   if (!LINES.length) return showErr('กรุณาเพิ่มรายการที่จะเบิกอย่างน้อยหนึ่งรายการ');
+  const kind = rKind();
   withUpload('rFileUp', 'rFile', url => run('createRequisition', {
-    type: $('rType').value, org: $('rOrg').value, event: $('rEvent').value,
-    purpose: $('rPurpose').value, dateOut: $('rOut').value, dueDate: $('rDue').value,
+    kind: kind, type: $('rType').value, org: $('rOrg').value, event: $('rEvent').value,
+    purpose: $('rPurpose').value, dateOut: $('rOut').value, dueDate: kind === 'จ่ายออก' ? '' : $('rDue').value,
     fileUrl: url, dept: $('rDept').value,
     lines: LINES.map(l => ({ code: l.code, qty: l.qty, units: l.units || [] }))
   }));
 }
+
+/* ═══ v34 ลักษณะคำขอ และพิมพ์ใบจากเลขที่เอกสาร (?print=REQ-...) ═══ */
+function rKind(){ return $('rKindGive') && $('rKindGive').checked ? 'จ่ายออก' : 'เบิก-คืน'; }
+function syncKind(){ $('rDueWrap').style.display = rKind() === 'จ่ายออก' ? 'none' : ''; }
+function printFromServer(d){
+  const give = d.kind === 'จ่ายออก';
+  tefPrint({ kind:'req', id:d.id, date:d.dateOut,
+    title: give ? ['ใบจ่ายพัสดุ (จ่ายออก ไม่ต้องคืน)', 'Issue Form (no return)'] : null,
+    header:[ ['ผู้เบิก', d.requester], ['ฝ่าย', d.dept], ['หน่วยงาน', d.type === 'ภายนอกองค์กร' ? d.org : ''],
+             ['ใช้ทำอะไร', d.event || d.purpose], ['ลักษณะคำขอ', d.kind], ['สถานะ', d.status],
+             ['วันที่เบิก', d.dateOut], ['กำหนดคืน', give ? '' : d.dueDate] ],
+    lines: d.lines.map(l => ({ code:l.code, name:l.name, qty:l.qty })),
+    esign: { 'ผู้เบิก': d.sigReq, 'ผู้อนุมัติ': d.sigApv },
+    note: d.sigReq || d.sigApv ? d.consent + ' · ตรวจสอบได้ที่ประวัติเอกสาร (DOC_LOG) ตามรหัสในช่องลงนาม' : '' });
+}
+(function(){
+  const pid = new URLSearchParams(location.search).get('print');
+  if (!pid || !/^REQ-\d{4}-\d{4}$/.test(pid)) return;
+  window.addEventListener('DOMContentLoaded', () => {
+    google.script.run.withSuccessHandler(printFromServer).withFailureHandler(e => showErr(e.message)).reqDocument(pid);
+  });
+})();
 
 function submitDis(){
   if (!LINES.length) return showErr('กรุณาเพิ่มรายการที่จะจ่าย');
@@ -953,7 +996,7 @@ function submitRet(){
       document.querySelectorAll('.btn-tef').forEach(b => b.disabled = false);
       const o = $('out'); o.className = 'result ok';
       $('outSt').textContent = r.pending ? 'ส่งคำขอคืนแล้ว ' + r.id + ' · รอแอดมินตรวจรับ' : 'บันทึกการคืนแล้ว ' + r.id + ' · ' + r.status;
-$1$('outWhy').textContent = r.pending ? 'ยังไม่ตัดยอดจนกว่าแอดมินจะตรวจรับของ ติดตามได้ที่คำขอของฉัน' : 'บันทึก ' + r.lines + ' รายการเข้าบัญชีเคลื่อนไหวเรียบร้อย';
+      $('outWhy').textContent = r.pending ? 'ยังไม่ตัดยอดจนกว่าแอดมินจะตรวจรับของ ติดตามได้ที่คำขอของฉัน' : 'บันทึก ' + r.lines + ' รายการเข้าบัญชีเคลื่อนไหวเรียบร้อย';
       $('outPrint').style.display = 'none';
       loadReq();
     })
@@ -994,6 +1037,11 @@ function run(fn, payload){
 function showOk(r){
   const o = $('out'); o.className = 'result ok';
   $('outSt').textContent = 'บันทึกแล้ว เลขที่ ' + r.id + ' · สถานะ ' + r.status;
+  if (r.status === 'รอตรวจ') {                                        // v34
+    $('outWhy').textContent = 'ส่งคำขอ' + (r.kind ? ' (' + r.kind + ')' : '') + ' แล้ว รอแอดมินตรวจ เมื่ออนุมัติให้ลงนามที่หน้า คำขอของฉัน';
+    $('outPrint').style.display = '';
+    return;
+  }
   $('outWhy').textContent = r.status === 'อนุมัติแล้ว'
     ? 'อนุมัติทันทีด้วยสิทธิ์ขาด ระบบบันทึก log และแจ้งเลขาธิการแล้ว'
     : 'เข้าคิวอนุมัติ ใบอนุมัติเลขที่ ' + r.apvId + ' รอผู้ดูแลระบบพิจารณาเป็นขั้นแรก';

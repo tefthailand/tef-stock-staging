@@ -126,7 +126,7 @@ window.addEventListener('DOMContentLoaded', function(){
 });
 
 function save(){
-  if (!$('fPdpa').checked) { showMsg(window.TEF_T ? TEF_T('กรุณาทำเครื่องหมายรับทราบนโยบายความเป็นส่วนตัว') : 'กรุณาทำเครื่องหมายรับทราบนโยบายความเป็นส่วนตัว', 'err'); return; }
+  if (!$('fPdpa').checked) { showMsg((window.TEF_LANG === 'en' && window.TEF_T ? TEF_T('กรุณาทำเครื่องหมายรับทราบนโยบายความเป็นส่วนตัว') : 'กรุณาทำเครื่องหมายรับทราบนโยบายความเป็นส่วนตัว'), 'err'); return; }
   var want = Array.prototype.slice.call(document.querySelectorAll('input[name=want]:checked')).map(function(x){ return x.value; });
   var d = { name: $('fName').value, phone: $('fPhone').value, org: $('fOrg').value, purpose: $('fPurpose').value, want: want };
   $('btnSave').disabled = true; $('msg').className = 'msg';

@@ -86,6 +86,14 @@ a.mc{padding:14px}
 .item .btns button{flex:1;font-size:15px;padding:11px 8px}
 .eb .long{display:none}.eb .short{display:inline}
 }
+/* v34 workflow */
+.grid.stats.five{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+.chip.borrow{background:#e0e9f7;color:#0A2342}.chip.give{background:#fdf0dc;color:#8a4b00}
+.signs{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.sg{font-size:12.5px;padding:2px 8px;border-radius:999px;border:1px solid #d5dde8;text-decoration:none}
+.sg.ok{background:#e9f7f0;color:#09614a;border-color:#bfe3d1}.sg.no{background:#fff;color:#5b6b80}.sg.bad{background:#fdecec;color:#a1121a;border-color:#f3c4c4}
+.lines li.short{color:#a1121a;font-weight:600}
+.btnlike{display:inline-flex;align-items:center;justify-content:center;flex:1;font-size:15px;padding:11px 8px;border:1px solid #c3cdde;border-radius:10px;background:#fff;color:#0A2342;text-decoration:none;cursor:pointer;font-weight:600}
 </style>
 </head>
 <body>
@@ -245,17 +253,84 @@ function renderEditor(box){
   box.appendChild(c);
 }
 
+/* ═══ v34 workflow: ตรวจคำขอ · ลงนาม · แนบใบลงนาม ═══ */
+function kindChip(k){ return el('span', 'chip ' + (k === 'จ่ายออก' ? 'give' : 'borrow'), k || 'เบิก-คืน'); }
+function signRow(r){
+  var d = el('div', 'signs');
+  var mk = function(okk, label){ var x = el('span', 'sg ' + (okk ? 'ok' : 'no'), (okk ? '✓ ' : '○ ') + label); return x; };
+  d.appendChild(mk(r.eApv, 'ผู้อนุมัติลงนาม'));
+  d.appendChild(mk(r.eReq, 'ผู้ขอลงนาม'));
+  if (r.signedUrl) { var a = el('a', 'sg ok', '✓ ใบลงนามที่แนบ'); a.href = r.signedUrl; a.target = '_blank'; a.rel = 'noopener'; d.appendChild(a); }
+  if (r.changed) d.appendChild(el('span', 'sg bad', 'เอกสารถูกแก้หลังลงนาม ต้องลงนามใหม่'));
+  return d;
+}
+function fileToB64(f, cb){ var rd = new FileReader(); rd.onload = function(){ cb(String(rd.result).split(',')[1] || ''); }; rd.readAsDataURL(f); }
+function uploadSignedBtn(reqId){
+  var wrap = el('label', 'btnlike', 'แนบใบลงนาม');
+  var inp = el('input'); inp.type = 'file'; inp.accept = 'application/pdf,image/jpeg,image/png'; inp.hidden = true;
+  wrap.appendChild(inp);
+  inp.addEventListener('change', function(){
+    var f = inp.files && inp.files[0]; if (!f) return;
+    if (f.size > 10 * 1024 * 1024) { toast('ไฟล์ใหญ่เกิน 10 MB', true); return; }
+    wrap.firstChild.textContent = 'กำลังอัปโหลด…';
+    fileToB64(f, function(b64){
+      google.script.run.withSuccessHandler(function(up){
+        act('attachSigned', [reqId, up.url], null, '', 'แนบใบลงนามแล้ว ' + reqId);
+      }).withFailureHandler(function(e){ toast((e && e.message) || String(e), true); wrap.firstChild.textContent = 'แนบใบลงนาม'; })
+        .uploadAttachment({ name: 'ใบลงนาม ' + reqId + ' ' + f.name, mimeType: f.type, data: b64 });
+    });
+  });
+  return wrap;
+}
+function renderReview(app, list){
+  app.appendChild(section('รอตรวจคำขอ', list.length, 'sec-review'));
+  if (!list.length) app.appendChild(el('div', 'empty', 'ไม่มีคำขอรอตรวจ'));
+  list.forEach(function(r){
+    var c = el('div', 'card item');
+    var main = el('div', 'main');
+    var t = el('div'); t.appendChild(el('span', 'id', r.id)); t.appendChild(document.createTextNode('  ')); t.appendChild(kindChip(r.kind));
+    t.appendChild(document.createTextNode('  ' + r.requester + (r.org ? ' · ' + r.org : '')));
+    main.appendChild(t);
+    main.appendChild(el('div', 'meta', 'ส่งเมื่อ ' + r.created + (r.dueDate ? ' · กำหนดคืน ' + r.dueDate : '') + (r.purpose ? ' · ' + r.purpose : '')));
+    var ul = el('ul', 'lines');
+    (r.lines || []).forEach(function(l){ var li = el('li', l.short ? 'short' : null, l.name + ' × ' + l.qty + (l.short ? '  (ของว่างไม่พอ)' : '')); ul.appendChild(li); });
+    main.appendChild(ul);
+    var rej = el('div', 'btns'); rej.style.display = 'none'; rej.style.marginTop = '8px';
+    var inp = el('input'); inp.type = 'text'; inp.placeholder = 'เหตุผลที่ไม่อนุมัติ';
+    var rb = el('button', 'bad', 'ยืนยันไม่อนุมัติ');
+    rej.appendChild(inp); rej.appendChild(rb); main.appendChild(rej);
+    c.appendChild(main);
+    var bt = el('div', 'btns');
+    var ok = el('button', null, 'อนุมัติและลงนาม'); var no = el('button', 'bad', 'ไม่อนุมัติ');
+    bt.appendChild(ok); bt.appendChild(no); c.appendChild(bt);
+    twoStep(ok, 'กดอีกครั้งเพื่ออนุมัติและลงนามอิเล็กทรอนิกส์', function(btn, orig){ act('reviewRequest', [r.id, 'approve', ''], btn, orig, 'อนุมัติแล้ว ' + r.id); });
+    no.addEventListener('click', function(){ rej.style.display = rej.style.display === 'none' ? 'flex' : 'none'; if (rej.style.display !== 'none') inp.focus(); });
+    rb.addEventListener('click', function(){
+      if (inp.value.trim().length < 3) { toast('กรุณาระบุเหตุผล', true); return; }
+      rb.disabled = true; rb.textContent = 'กำลังบันทึก…';
+      act('reviewRequest', [r.id, 'reject', inp.value.trim()], rb, 'ยืนยันไม่อนุมัติ', 'บันทึกไม่อนุมัติแล้ว ' + r.id);
+    });
+    app.appendChild(c);
+  });
+}
+
 function renderAdmin(app, A){
   app.appendChild(el('h2', null, 'งานที่รอแอดมินดำเนินการ'));
   var st = el('div', 'grid stats');
-  [['รอจ่ายของออก', A.toDispatch.length, '#sec-dispatch'], ['รอตรวจรับคืน', A.returns.length, '#sec-return'],
-   ['เกินกำหนดคืน', A.overdue.length, '#sec-overdue'], ['ผู้ใช้ภายนอก', A.externals.length, '#sec-ext']].forEach(function(s){
+  var stats = [['รอจ่ายของออก', A.toDispatch.length, '#sec-dispatch'], ['รอตรวจรับคืน', A.returns.length, '#sec-return'],
+   ['เกินกำหนดคืน', A.overdue.length, '#sec-overdue'], ['ผู้ใช้ภายนอก', A.externals.length, '#sec-ext']];
+  if (B.review) stats.unshift(['รอตรวจคำขอ', (A.toReview || []).length, '#sec-review']);   // v34
+  if (B.review) st.className = 'grid stats five';
+  stats.forEach(function(s){
     var a = el('a', 'card st' + (s[1] > 0 && s[0] !== 'ผู้ใช้ภายนอก' ? ' hot' : '')); a.target = '_self'; a.href = s[2];
     a.addEventListener('click', function(ev){ ev.preventDefault(); var t = document.querySelector(s[2]); if (t) t.scrollIntoView({behavior:'smooth'}); });
     a.appendChild(el('div', 'n', String(s[1]))); a.appendChild(el('div', 'l', s[0]));
     st.appendChild(a);
   });
   app.appendChild(st);
+
+  // v34 รอตรวจคำขอ
+  if (B.review) renderReview(app, A.toReview || []);
 
   // รอจ่ายของออก
   app.appendChild(section('รอจ่ายของออก', A.toDispatch.length, 'sec-dispatch'));
@@ -267,9 +342,17 @@ function renderAdmin(app, A){
     main.appendChild(t);
     main.appendChild(el('div', 'meta', 'วันที่ขอ ' + r.created + (r.dueDate ? ' · กำหนดคืน ' + r.dueDate : '') + (r.purpose ? ' · ' + r.purpose : '')));
     main.appendChild(linesList(r.lines));
+    if (B.review) main.appendChild(signRow(r));                       // v34
     c.appendChild(main);
-    var bt = el('div', 'btns'); var b = el('button', null, 'จ่ายของออก'); bt.appendChild(b); c.appendChild(bt);
-    twoStep(b, 'กดอีกครั้งเพื่อยืนยันจ่าย', function(btn, orig){ act('homeDispatch', [r.id], btn, orig, 'จ่ายของออกแล้ว ' + r.id); });
+    var bt = el('div', 'btns');
+    if (B.review) {
+      var pr = el('a', 'btnlike', 'พิมพ์ใบ'); pr.href = 'request.html?print=' + encodeURIComponent(r.id); pr.target = '_blank'; pr.rel = 'noopener';
+      bt.appendChild(pr);
+      if (!r.signedUrl) bt.appendChild(uploadSignedBtn(r.id));
+    }
+    var b = el('button', null, r.kind === 'จ่ายออก' ? 'จ่ายออก (ไม่ต้องคืน)' : 'จ่ายของออก'); bt.appendChild(b); c.appendChild(bt);
+    if (B.review && !r.ready) { b.disabled = true; b.title = 'รอลงนามให้ครบ หรือแนบใบที่ลงนามแล้ว'; }
+    twoStep(b, 'กดอีกครั้งเพื่อยืนยันจ่าย', function(btn, orig){ act('homeDispatch', [r.id], btn, orig, 'จ่ายแล้ว ' + r.id); });
     app.appendChild(c);
   });
 

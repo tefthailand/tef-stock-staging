@@ -99,7 +99,7 @@ button.btn:disabled{opacity:.6;cursor:default}
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
-  var T = function (s) { return window.TEF_T ? window.TEF_T(s) : s; };
+  var T = function (s) { return window.TEF_LANG === 'en' && window.TEF_T ? window.TEF_T(s) : s; };   // แปลเฉพาะตอนเลือก English
   var C = window.TEF_CONFIG || {}, A = window.TEFAPI, Auth = window.TEFAuth;
   var Q = new URLSearchParams(location.search);
   var page = Q.get('page') || '', next = Q.get('next') || '', q = Q.get('q') || '';
