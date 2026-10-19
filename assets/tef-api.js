@@ -53,7 +53,7 @@
 
   /** v35: แลกบัตร Google เป็นบัตรผ่านของระบบ 6 ชม. */
   function exchange(t) {
-    return post('googleSession', [t]).then(function (r) {
+    return postRetry('googleSession', [t]).then(function (r) {
       ls(K_SES, r.tok); ls(K_BY, 'GOOGLE'); ls(K_IDT, null); ss(K_ME, null);
       return r;
     });
@@ -77,7 +77,9 @@
       redirect: 'follow', credentials: 'omit', cache: 'no-store'
     }).then(function (r) {
       if (!r.ok) throw mkErr('NETWORK', 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (' + r.status + ') กรุณาลองใหม่');
-      return r.json();
+      return r.json().catch(function () {               // v35.1: Google ตอบหน้า error แทน JSON (ขัดข้องชั่วคราว)
+        throw mkErr('NETWORK', 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจอินเทอร์เน็ตแล้วลองใหม่');
+      });
     }, function () {
       throw mkErr('NETWORK', 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจอินเทอร์เน็ตแล้วลองใหม่');
     }).then(function (res) {
@@ -86,10 +88,28 @@
     });
   }
 
+  /**
+   * v35.1 ลองใหม่อัตโนมัติ: Apps Script บางช่วงตอบช้า 20–35 วิ หรือตอบหน้า error ของ Google (วัดจริง 19 ต.ค. 23:00)
+   * เฉพาะคำสั่งอ่านอย่างเดียว ลองอีก 2 ครั้ง (รอ 1.5 วิ และ 4 วิ) · คำสั่งบันทึกไม่ลองซ้ำ กันบันทึกซ้ำ
+   */
+  var SAFE = { apiPing: 1, sessionCheck: 1, googleSession: 1, meInfo: 1, namesEn: 1, appUrl: 1, homeBoot: 1, getBoot: 1,
+               myRequests: 1, surveyBoot: 1, stockList: 1, stockPhotos: 1, radioUnitList: 1, listItems: 1, requestBoot: 1,
+               getRequisition: 1, getPrintHtml: 1, listPending: 1, getBootstrapData: 1, countListItems: 1, getItem: 1,
+               getProgress: 1, facetData: 1, dashData: 1, adminBoot: 1, reqDocument: 1 };
+  var WAIT = [1500, 4000];
+  function postRetry(fn, args, n) {
+    n = n || 0;
+    return post(fn, args).catch(function (e) {
+      if (e && e.code === 'NETWORK' && SAFE[fn] && n < WAIT.length)
+        return new Promise(function (ok) { setTimeout(ok, WAIT[n]); }).then(function () { return postRetry(fn, args, n + 1); });
+      throw e;
+    });
+  }
+
   /** เรียกหลังบ้าน · บัตรหมดอายุหรือไม่มีบัตร → ลบบัตรในเครื่อง แล้วไปหน้าเข้าสู่ระบบพร้อมจำหน้าเดิม (ตะกร้าอยู่ใน ?add= ไม่หาย) */
   function call(fn, args) {
-    if (PRE[fn]) return post(fn, args);
-    return upgrade().then(function () { return post(fn, args); })
+    if (PRE[fn]) return postRetry(fn, args);
+    return upgrade().then(function () { return postRetry(fn, args); })
       .catch(function (e) {
         if (/^AUTH_/.test(e.code || '')) { forget(); Auth.toLogin('expired'); }
         throw e;
