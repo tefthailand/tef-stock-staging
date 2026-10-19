@@ -109,6 +109,10 @@ button.btn:disabled{opacity:.6;cursor:default}
   $('tefLang').href = location.href;
   $('tefLang').textContent = window.TEF_LANG === 'en' ? 'ภาษาไทย' : 'English';
 
+  // v35: หมดเวลาการเข้าใช้ · ถ้ามาจากตะกร้า บอกว่ารายการที่เลือกไว้ยังอยู่ (อยู่ใน ?add= เข้าแล้วกลับไปหน้าเบิก)
+  var CART = !!(Q.get('add') || /(^|&)add=/.test(q));
+  var EXPIRED = CART ? 'หมดเวลาการเข้าใช้ กรุณาเข้าสู่ระบบอีกครั้ง รายการที่เลือกไว้ยังอยู่'
+                     : 'หมดเวลาการเข้าใช้ กรุณาเข้าสู่ระบบอีกครั้ง';
   function state(t, cls) { var s = $('state'); s.textContent = T(t); s.className = 'acct ' + (cls || 'ok'); }
   function say(id, t, cls) { var m = $(id); m.textContent = T(t); m.className = 'msg' + (cls ? ' ' + cls : ''); }
 
@@ -130,7 +134,7 @@ button.btn:disabled{opacity:.6;cursor:default}
       if (e && e.code === 'NO_ACCESS') {
         state('บัญชีนี้ยังไม่มีสิทธิ์เข้าระบบ กรุณาเข้าด้วยบัญชีอื่น หรือติดต่อผู้ดูแลระบบ', 'warn');
         Auth.clear();
-      } else if (e && /^AUTH_/.test(e.code || '')) { Auth.clear(); state('กรุณาเข้าสู่ระบบอีกครั้ง', 'warn'); }
+      } else if (e && /^AUTH_/.test(e.code || '')) { Auth.clear(); state(EXPIRED, 'warn'); }
       else state(String((e && e.message) || e), 'bad');
     });
   }
@@ -146,9 +150,15 @@ button.btn:disabled{opacity:.6;cursor:default}
   else if (Q.get('switch')) { Auth.clear(); state('เลือกบัญชีที่จะใช้ แล้วเข้าสู่ระบบ'); }
   else if (err === 'noaccess') { Auth.clear(); state('บัญชีนี้ยังไม่มีสิทธิ์เข้าระบบ กรุณาเข้าด้วยบัญชีอื่น หรือติดต่อผู้ดูแลระบบ', 'warn'); }
   else if (Auth.signedIn()) proceed();
+  else if (err === 'expired') state(EXPIRED, 'warn');
 
   // ปุ่ม Sign in with Google
   Auth.onSignIn = proceed;
+  Auth.onSignInStart = function () { state('กำลังตรวจสิทธิ์…', 'ok'); };
+  Auth.onSignInFail = function (e) {                // v35: แลกบัตร Google เป็นบัตรผ่านไม่สำเร็จ
+    if (e && e.code === 'NO_ACCESS') { Auth.clear(); state('บัญชีนี้ยังไม่มีสิทธิ์เข้าระบบ กรุณาเข้าด้วยบัญชีอื่น หรือติดต่อผู้ดูแลระบบ', 'warn'); }
+    else state(String((e && e.message) || e), 'bad');
+  };
   Auth.renderButton($('gBtn'), window.TEF_LANG).catch(function (e) { say('gMsg', e.message, 'bad'); });
 
   // ทางสำรอง: รหัสทางอีเมล

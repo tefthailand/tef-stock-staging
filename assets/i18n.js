@@ -64,6 +64,7 @@ var D = {
 'นโยบายความเป็นส่วนตัว': 'Privacy policy', 'ชุดทดสอบ': 'Staging', 'ข้าพเจ้ารับทราบ': 'I have read the ',
 'กรุณาทำเครื่องหมายรับทราบนโยบายความเป็นส่วนตัว': 'Please tick to confirm you have read the privacy policy',
 'เลือกบัญชีที่จะใช้ แล้วเข้าสู่ระบบ': 'Choose the account to use, then sign in', 'กรุณาเข้าสู่ระบบอีกครั้ง': 'Please sign in again',
+'หมดเวลาการเข้าใช้ กรุณาเข้าสู่ระบบอีกครั้ง': 'Your session has timed out. Please sign in again.', 'หมดเวลาการเข้าใช้ กรุณาเข้าสู่ระบบอีกครั้ง รายการที่เลือกไว้ยังอยู่': 'Your session has timed out. Please sign in again. Your selected items are kept.', 'ยืนยันด้วยรหัสทางอีเมล': 'Verified by email code', 'มีสิทธิ์ขาด': 'Final authority',
 'อีเมลที่ใช้เข้าสู่ระบบ': 'Email used to sign in', 'กรุณาเข้าสู่ระบบ': 'Please sign in',
 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจอินเทอร์เน็ตแล้วลองใหม่': 'Cannot reach the server. Check your connection and try again.',
 'บัตรผ่าน Google หมดอายุหรือไม่ถูกต้อง กรุณาเข้าสู่ระบบใหม่': 'Your Google sign-in has expired or is invalid. Please sign in again.',

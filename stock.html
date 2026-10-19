@@ -166,7 +166,20 @@ var CAT = 'ทั้งหมด';
 var SHOWN = 0, PAGE = 48, CUR = [];
 var PH = {};           // code -> dataURL ภาพย่อ
 var ASKED = {};
-var BASK = {};         // code -> {q, n, b}
+var BASK = {};         // code -> {q, n, b} · v35: จำไว้ใน sessionStorage tef_cart (รีเฟรช/ย้อนกลับไม่หาย · แยกตามเครื่องและแท็บ)
+var CART_KEY = 'tef_cart';
+function cartSave(){ try { if (Object.keys(BASK).length) sessionStorage.setItem(CART_KEY, JSON.stringify(BASK)); else sessionStorage.removeItem(CART_KEY); } catch (e) {} }
+/* คืนตะกร้าหลังโหลดรายการ: ตัดรายการที่ไม่มีแล้วหรือหมด และไม่ให้เกินคงเหลือล่าสุด */
+function cartRestore(){
+var saved = null; try { saved = JSON.parse(sessionStorage.getItem(CART_KEY) || 'null'); } catch (e) {}
+if (!saved || typeof saved !== 'object') return;
+var byCode = {}; (D.items || []).forEach(function (it) { byCode[it.c] = it; });
+Object.keys(saved).forEach(function (code) {
+var it = byCode[code], q = Math.floor(Number((saved[code] || {}).q) || 0);
+if (!it || !(it.b > 0) || q < 1) return;
+BASK[code] = { q: Math.min(q, it.b), n: it.n, b: it.b };
+});
+}
 var $ = function (i) { return document.getElementById(i); };
 function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 var ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>';
@@ -202,6 +215,7 @@ grp.sort(function (a, b) { return szRank(a.sz) - szRank(b.sz) || (a.sz < b.sz ? 
 ALL.push(mk(grp[0].base, grp));
 } else { ALL.push(mk(it.n, [it])); }
 });
+cartRestore();
 buildChips(); buildAdmin(); render(true);
 baskUi();
 }
@@ -504,7 +518,9 @@ var codes = Object.keys(BASK), tot = 0; codes.forEach(function (k) { tot += BASK
 $('bask').style.display = codes.length ? 'block' : 'none';
 $('baskT').innerHTML = 'เลือกไว้ <b>' + codes.length + '</b> รายการ รวม <b>' + tot + '</b> ชิ้น';
 var q = codes.map(function (k) { return k + ':' + BASK[k].q; }).join(',');
-var href = (D.app || '#') + '?page=index&add=' + encodeURIComponent(q);
+var href = window.TEFAPI ? TEFAPI.url('index', 'add=' + encodeURIComponent(q))   // v35: ไปหน้าเบิก request.html ตรง ไม่ผ่านหน้า Login
+  : (D.app || '#') + '?page=index&add=' + encodeURIComponent(q);
+cartSave();
 $('baskGo').href = href; var cn = $('cartN'); if (cn) { cn.textContent = codes.length; cn.style.display = codes.length ? 'block' : 'none'; } var g = $('mGo'); if (g) { g.href = href; g.style.display = codes.length ? '' : 'none'; }
 }
 function buildAdmin(){

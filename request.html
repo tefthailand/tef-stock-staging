@@ -645,9 +645,8 @@ function onBoot(b){
   if (/^EXTERNAL/.test(String(b.me.role || ''))) {                  // v34 แบบ ข.: ภายนอกขอจ่ายออกเองไม่ได้
     const g = $('rKindGive'); if (g) { g.closest('label').style.display = 'none'; $('rKindBorrow').checked = true; syncKind(); }
   }
-  $('who').textContent = 'ผู้ใช้ ' + b.me.name + ' · ' + b.me.position +
-    (b.me.absolute ? ' · มีสิทธิ์ขาด' : '') +
-    ' · ยืนยันด้วยบัญชี Google';
+  const via = (b.me.authBy || (window.TEFAuth ? TEFAuth.authBy() : '')) === 'EMAIL' ? 'ยืนยันด้วยรหัสทางอีเมล' : 'ยืนยันด้วยบัญชี Google';   // v35
+  $('who').textContent = ['ผู้ใช้ ' + b.me.name, b.me.position, b.me.absolute ? 'มีสิทธิ์ขาด' : '', via].filter(Boolean).join(' · ');
 
   if (b.me.external){
     document.querySelectorAll('.tef-tab[data-m="dis"],.tef-tab[data-m="mov"]').forEach(x => x.style.display = 'none');
@@ -1043,6 +1042,10 @@ function run(fn, payload){
     .withSuccessHandler(r => {
       document.querySelectorAll('.btn-tef').forEach(b => b.disabled = false);
       LAST.result = r;
+      if (fn === 'createRequisition') {          // v35: ส่งคำขอแล้ว ล้างตะกร้าของหน้ารายการพัสดุ และเอา ?add= ออก กันรีเฟรชแล้วใส่ซ้ำ
+        try { sessionStorage.removeItem('tef_cart'); } catch (x) {}
+        try { if (/[?&]add=/.test(location.search)) history.replaceState(null, '', location.pathname); } catch (x) {}
+      }
       showOk(r);
       LINES = []; renderLines();
       google.script.run.withSuccessHandler(onItems).listItems();
