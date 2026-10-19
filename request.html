@@ -342,7 +342,7 @@ body{background:var(--tef-bg);color:var(--tef-text);font-family:var(--tef-font);
      ═══════════════════════════════════════════════════════════════ -->
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-@page{ size:A4 portrait; margin:16mm 14mm; }
+@page{ size:A4 portrait; margin:12mm 13mm; }
 
 .pr-doc{ display:none; }
 @media print{
@@ -405,9 +405,38 @@ body{background:var(--tef-bg);color:var(--tef-text);font-family:var(--tef-font);
 .pr-f > label .pr-e{ display:inline; }
 .pr-foot{ display:flex; justify-content:space-between; font-size:8.5pt; color:var(--pr-soft);
   border-top:.5pt solid var(--pr-thin); margin-top:18pt; padding-top:4pt; }
+/* v35.2 หลายหน้า: หน้าละ 10 รายการ · ลงนามและยอดรวมที่หน้าสุดท้าย · ต้นแบบ #prTpl ไม่พิมพ์ */
+.pr-doc #prTpl{ display:none !important; }
+.pr-page + .pr-page{ break-before:page; page-break-before:always; }
+.pr-page{ break-inside:avoid; }
+/* v35.2 บีบให้พอดี A4 หนึ่งแผ่นต่อหน้า (ชื่อไทย + อังกฤษ 2 บรรทัดครบ 10 แถว) · ท้ายกระดาษอยู่ล่างสุดเสมอ */
+@media print{
+  html, body{ margin:0 !important; padding:0 !important; }
+  .pr-page{ height:270mm; display:flex; flex-direction:column; overflow:hidden; box-sizing:border-box; padding:0 1.5mm; }
+  .pr-page .pr-foot{ margin-top:auto; }
+}
+.pr-doc .pr-seal{ height:30pt; }
+.pr-doc .pr-title{ font-size:16pt; margin:2pt 0 6pt; padding-bottom:6pt; }
+.pr-doc .pr-ref{ margin-bottom:6pt; }
+.pr-doc .pr-fields{ gap:3pt 14pt; margin-bottom:8pt; font-size:11pt; }
+.pr-doc .pr-items{ font-size:10.5pt; }
+.pr-doc .pr-items th{ padding:3pt 4pt; line-height:1.25; }
+.pr-doc .pr-items td{ padding:2pt 5pt; height:22pt; line-height:1.3; }
+.pr-doc .pr-items td .pr-e{ font-size:.74em; line-height:1.15; }
+.pr-doc .pr-note{ margin-top:3pt; line-height:1.3; }
+.pr-doc .pr-signs{ margin-top:10pt; }
+.pr-doc .pr-sign .pr-line{ height:24pt; }
+.pr-doc .pr-signlater{ margin-top:10pt; }
+.pr-doc .pr-foot{ margin-top:8pt; flex-wrap:wrap; gap:1pt 10pt; font-size:8pt; }
+.pr-doc .pr-ref{ flex-wrap:wrap; gap:2pt 12pt; }
+.pr-doc .pr-ref > div, .pr-doc .pr-foot > span{ min-width:0; }
+.pr-cont td{ text-align:center !important; font-weight:600; color:var(--pr-soft); background:#F4F8FB; }
+.pr-signlater{ margin-top:14pt; text-align:center; font-size:10pt; color:var(--pr-soft); border:.6pt dashed var(--pr-thin); padding:6pt; }
+.pr-doc.pr-preview .pr-page{ padding-bottom:12pt; margin-bottom:18pt; border-bottom:2px dashed #CFE2EF; }
 </style>
 
 <div class="pr-doc" id="prDoc" data-noi18n>
+<div class="pr-page" id="prTpl">
 
   <div class="pr-lh">
     <div class="pr-names">
@@ -438,6 +467,8 @@ body{background:var(--tef-bg);color:var(--tef-text);font-family:var(--tef-font);
     <span>ระบบเบิก จ่าย คืน ย้าย · ทะเบียนพัสดุสมาคม / TEF Stock — Borrow · Issue · Return · Transfer</span>
     <span id="prFootId">—</span>
   </div>
+</div>
+<div id="prPages"></div>
 </div>
 
 <script>
@@ -549,7 +580,9 @@ function tefFillPrint(d){
     '<th' + (c.w ? ' style="width:' + c.w + '"' : '') + '>' + bi(c.h[0], c.h[1]) + '</th>').join('');
 
   const rows = d.lines || [];
-  const blanks = Math.max(0, 10 - rows.length);     // เว้นบรรทัดว่างให้เขียนเพิ่มด้วยมือ
+  const PER = 10;                                     // v35.2: หน้าละ 10 รายการ
+  const pages = Math.max(1, Math.ceil(rows.length / PER));
+  const ncol = cfg.cols.length;
   const cell = (c, l, i) => {
     if (c.k === '#') return e(i + 1);
     const v = l[c.k] == null ? '' : l[c.k];
@@ -560,31 +593,46 @@ function tefFillPrint(d){
     if (c.k === 'from' || c.k === 'to') return bi(v, tr(v));
     return e(v);
   };
-  let body = rows.map((l, i) => '<tr>' + cfg.cols.map(c =>
-    '<td class="' + (c.a || '') + '">' + cell(c, l, i) + '</td>').join('') + '</tr>').join('');
-
-  for (let b = 0; b < blanks; b++){
-    body += '<tr>' + cfg.cols.map((c, ci) =>
-      '<td class="' + (c.a || '') + '">' + (ci === 0 ? (rows.length + b + 1) : '') + '</td>').join('') + '</tr>';
-  }
-  g('prBody').innerHTML = body;
-
   const fs = cfg.cols.findIndex(c => cfg.sum.indexOf(c.k) >= 0);
-  g('prFoot').innerHTML = fs > 0
-    ? '<tr><td colspan="' + fs + '" style="text-align:right">รวม / Total</td>' +
+  const total = fs > 0
+    ? '<tr><td colspan="' + fs + '" style="text-align:right">รวม' + (pages > 1 ? 'ทั้งหมด ' + rows.length + ' รายการ' : '') +
+      ' / Total</td>' +
       cfg.cols.slice(fs).map(c => cfg.sum.indexOf(c.k) < 0 ? '<td></td>' :
         '<td class="pr-r">' + rows.reduce((a, l) => a + (Number(l[c.k]) || 0), 0) + '</td>').join('') + '</tr>'
     : '';
-
-  g('prNote').innerHTML = d.note ? e(d.note) : bi(cfg.note[0], cfg.note[1]);
-
-  g('prSigns').innerHTML = (d.signs || cfg.signs).map(s => {
+  const note = d.note ? e(d.note) : bi(cfg.note[0], cfg.note[1]);
+  const signs = (d.signs || cfg.signs).map(s => {
     const es = d.esign && d.esign[s[0]];                               // v34: ลงนามอิเล็กทรอนิกส์แล้ว
     return '<div class="pr-sign">' +
       (es ? '<div class="pr-es"><b>ลงนามอิเล็กทรอนิกส์ / e-signed</b>' + e(es) + '</div>' : '<div class="pr-line"></div>') +
       '<div class="pr-role">' + bi(s[0], s[1]) + '</div>' +
       (es ? '' : '<div class="pr-date">วันที่ / Date ……… / ……… / ………</div>') + '</div>';
   }).join('');
+
+  const tpl = g('prTpl'), host = g('prPages');
+  host.innerHTML = '';
+  for (let p = 0; p < pages; p++) {
+    const last = p === pages - 1;
+    const part = rows.slice(p * PER, (p + 1) * PER);
+    let body = part.map((l, j) => '<tr>' + cfg.cols.map(c =>
+      '<td class="' + (c.a || '') + '">' + cell(c, l, p * PER + j) + '</td>').join('') + '</tr>').join('');
+    if (last) for (let b = part.length; b < PER; b++)                  // เว้นบรรทัดว่างให้เขียนเพิ่มด้วยมือ
+      body += '<tr>' + cfg.cols.map((c, ci) =>
+        '<td class="' + (c.a || '') + '">' + (ci === 0 ? (p * PER + b + 1) : '') + '</td>').join('') + '</tr>';
+
+    const pg = tpl.cloneNode(true);
+    pg.removeAttribute('id');
+    pg.querySelector('tbody').innerHTML = body;
+    pg.querySelector('tfoot').innerHTML = last ? total
+      : '<tr class="pr-cont"><td colspan="' + ncol + '">ต่อหน้า ' + (p + 2) + ' / Continued on page ' + (p + 2) + '</td></tr>';
+    pg.querySelector('.pr-note').innerHTML = last ? note : '';
+    pg.querySelector('.pr-signs').innerHTML = last ? signs : '';
+    if (!last) pg.querySelector('.pr-signs').insertAdjacentHTML('afterend',
+      '<div class="pr-signlater">ลงนามที่หน้าสุดท้าย (หน้า ' + pages + ') / Please sign on the last page (page ' + pages + ')</div>');
+    pg.querySelector('.pr-foot span:last-child').textContent = (d.id || '—') + ' · หน้า ' + (p + 1) + '/' + pages + ' / Page ' + (p + 1) + ' of ' + pages;
+    pg.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+    host.appendChild(pg);
+  }
 }
 
 function tefPrint(d){
