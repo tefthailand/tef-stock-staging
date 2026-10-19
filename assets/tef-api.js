@@ -46,7 +46,10 @@
     var s = ls(K_SES); if (s) return { ses: s };
     var t = freshIdt(); return t ? { idt: t } : {};
   }
-  function forget() { ls(K_IDT, null); ls(K_SES, null); ls(K_BY, null); ss(K_ME, null); }
+  function forget() {
+    ls(K_IDT, null); ls(K_SES, null); ls(K_BY, null); ss(K_ME, null);
+    try { Object.keys(localStorage).forEach(function (k) { if (k.indexOf(K_C) === 0) localStorage.removeItem(k); }); } catch (e) {}
+  }
 
   /** v35: แลกบัตร Google เป็นบัตรผ่านของระบบ 6 ชม. */
   function exchange(t) {
@@ -91,6 +94,59 @@
         if (/^AUTH_/.test(e.code || '')) { forget(); Auth.toLogin('expired'); }
         throw e;
       });
+  }
+
+  // ── v35 ความเร็ว: จำข้อมูลไว้ในเครื่อง แสดงทันที แล้วอัปเดตจากหลังบ้าน ─────────────
+  // ข้อมูลพัสดุ/คงเหลือของหน้าเว็บ (ไม่ใช่รหัสผ่าน) · ลบทั้งหมดเมื่อออกจากระบบหรือหมดเวลาเข้าใช้ · ยอดจริงตรวจที่หลังบ้านตอนบันทึกเสมอ
+  var K_C = 'tef_c_', C_AGE = 24 * 3600000;
+  function cacheRead(key) {
+    try { var o = JSON.parse(ls(K_C + key) || 'null'); if (o && o.t > Date.now() - C_AGE) return o; } catch (e) {}
+    return null;
+  }
+  function cacheWrite(key, d) {
+    try { localStorage.setItem(K_C + key, JSON.stringify({ t: Date.now(), d: d })); } catch (e) { /* ที่เก็บเต็ม: ข้าม */ }
+  }
+  /** onData(data, fromCache, savedAt) ถูกเรียกได้ 2 ครั้ง: ของที่จำไว้ (ถ้ามี) ทันที แล้วของใหม่จากหลังบ้าน
+   *  onFail(err, hadCache) ถ้าโหลดใหม่ไม่ได้ */
+  function fresh(key, fn, args, onData, onFail) {
+    var c = cacheRead(key);
+    if (c) { try { onData(c.d, true, c.t); } catch (e) { if (window.console) console.error('[TEF] cache', key, e); } }
+    return call(fn, args || []).then(function (d) {
+      cacheWrite(key, d); onData(d, false, Date.now()); return d;
+    }, function (e) { if (onFail) onFail(e, !!c); else if (window.console) console.error('[TEF]', fn, e); });
+  }
+  // รูปพัสดุ: จำใน IndexedDB ตามรหัส + เวลาบันทึกรูป (เปลี่ยนรูปแล้วโหลดใหม่เอง)
+  var idbP = null;
+  function idb() {
+    if (!idbP) idbP = new Promise(function (ok, no) {
+      try {
+        var r = indexedDB.open('tef', 1);
+        r.onupgradeneeded = function () { r.result.createObjectStore('ph'); };
+        r.onsuccess = function () { ok(r.result); };
+        r.onerror = function () { no(r.error); };
+      } catch (e) { no(e); }
+    });
+    return idbP;
+  }
+  /** list = [{c: รหัส, v: เวลารูป}] → Promise {รหัส: dataURL} เฉพาะที่จำไว้และยังเป็นรูปเดิม */
+  function photoGet(list) {
+    if (!list.length) return Promise.resolve({});
+    return idb().then(function (d) {
+      return new Promise(function (ok) {
+        var out = {}, n = list.length, st = d.transaction('ph', 'readonly').objectStore('ph');
+        list.forEach(function (x) {
+          var q = st.get(x.c);
+          q.onsuccess = function () { var v = q.result; if (v && x.v && v.v === x.v) out[x.c] = v.u; if (--n === 0) ok(out); };
+          q.onerror = function () { if (--n === 0) ok(out); };
+        });
+      });
+    }).catch(function () { return {}; });
+  }
+  function photoPut(m, vmap) {
+    idb().then(function (d) {
+      var st = d.transaction('ph', 'readwrite').objectStore('ph');
+      Object.keys(m).forEach(function (c) { if (vmap[c]) st.put({ v: vmap[c], u: m[c] }, c); });
+    }).catch(function () {});
   }
 
   // ── ตัวครอบ google.script.run ──────────────────────────────────
@@ -240,7 +296,8 @@
     }
   };
 
-  window.TEFAPI = { call: call, PAGES: PAGES, pageKey: pageKey, url: function (page, q) {
+  window.TEFAPI = { call: call, fresh: fresh, cacheRead: cacheRead, photoGet: photoGet, photoPut: photoPut,
+                    PAGES: PAGES, pageKey: pageKey, url: function (page, q) {
     var f = PAGES[page] || 'index.html'; return C.SITE + f + (q ? '?' + q : '');
   } };
   window.TEFAuth = Auth;

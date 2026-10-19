@@ -3,11 +3,12 @@
 <head>
 <title>เบิก จ่าย คืน ย้าย — TEF</title>
 <!-- v33: หน้าเว็บบน GitHub Pages เรียกหลังบ้านผ่าน assets/tef-api.js (google.script.run แบบเดิม) -->
+<link rel="preconnect" href="https://script.google.com" crossorigin>
+<link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
 <script src="assets/config.js"></script>
 <script src="assets/tef-api.js"></script>
 <script src="assets/i18n.js"></script>
 <script src="assets/tef-shell.js"></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>window.__ADD = (new URLSearchParams(location.search).get('add') || '').replace(/[^A-Za-z0-9:,_\-]/g, '').slice(0, 600);</script>
 <base target="_top">
 <meta charset="utf-8">
@@ -597,7 +598,7 @@ function tefPrint(d){
 const $ = i => document.getElementById(i);
 let ITEMS = [], BOOT = null, LINES = [], MODE = 'req', LAST = null;
 let RAD = null, SEL = [];        // วิทยุรายเครื่อง: รุ่น -> {units:[{c,s,d}]} , เครื่องที่เลือก
-function loadRad(cb){ google.script.run.withSuccessHandler(r => { RAD = r || {}; if (cb) cb(); }).withFailureHandler(() => { RAD = RAD || {}; if (cb) cb(); }).radioUnitList(); }
+function loadRad(cb){ if (RAD) { if (cb) cb(); return; } google.script.run.withSuccessHandler(r => { RAD = r || {}; if (cb) cb(); }).withFailureHandler(() => { RAD = RAD || {}; if (cb) cb(); }).radioUnitList(); }
 function isRad(code){ return MODE === 'req' && RAD && RAD[code] && RAD[code].units.length > 0; }
 function freeUnits(code){ const used = {}; LINES.forEach(l => (l.units || []).forEach(u => used[u] = 1)); return ((RAD && RAD[code] && RAD[code].units) || []).filter(u => u.s === 'คงคลัง' && !used[u.c]).map(u => u.c); }
 function drawUnits(){
@@ -618,8 +619,16 @@ function drawUnits(){
 /* ไม่ใช้บัตรผ่านแล้ว ยืนยันตัวตนด้วยบัญชี Google อย่างเดียว */
 let TOK = '';
 
+let BOOTED = false;
 window.addEventListener('DOMContentLoaded', () => {
-  google.script.run.withSuccessHandler(onBoot).withFailureHandler(fail).getBoot(TOK);
+  // v35: ครั้งเดียวได้ค่าตั้งต้น + รายการพัสดุ + วิทยุ (เดิม 3 รอบต่อกัน) · แสดงที่จำไว้ก่อน แล้วอัปเดตยอด
+  TEFAPI.fresh('reqboot', 'requestBoot', [TOK], onBootAll, (e, had) => {
+    if (e && e.code === 'NOT_ALLOWED' && !BOOTED) {       // หลังบ้านยังเป็นรุ่นก่อน v35.1: ใช้วิธีเดิม 2 รอบ
+      google.script.run.withSuccessHandler(b => { BOOTED = true; onBoot(b); }).withFailureHandler(fail).getBoot(TOK);
+      return;
+    }
+    if (!had) fail(e);
+  });
   const t = new Date(), p = n => ('0' + n).slice(-2);
   const today = t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate());
   const due = new Date(Date.now() + 14 * 864e5);
@@ -627,7 +636,30 @@ window.addEventListener('DOMContentLoaded', () => {
   $('rDue').value = due.getFullYear() + '-' + p(due.getMonth() + 1) + '-' + p(due.getDate());
 });
 
-function onBoot(b){
+function onBootAll(d){
+  if (!d || !d.boot) return;
+  if (!BOOTED) { BOOTED = true; RAD = d.rad || null; onBoot(d.boot, d.items); return; }
+  RAD = d.rad || RAD;
+  refreshItems(d.items || []);
+}
+/* ยอดล่าสุดมาถึงหลังแสดงของที่จำไว้: อัปเดตรายการค้นหาและคงเหลือในรายการที่เลือกแล้ว */
+function refreshItems(list){
+  ITEMS = list || [];
+  $('itemList').innerHTML = ITEMS.map(i =>
+    '<option value="' + esc(i.code) + '">' + esc(i.code + ' — ' + i.name + ' (คงเหลือ ' + i.balance + ')') + '</option>'
+  ).join('');
+  let changed = 0;
+  LINES = LINES.filter(l => {
+    const it = ITEMS.find(x => x.code === l.code);
+    if (!it || it.balance < 1) { changed++; return false; }
+    if (l.balance !== it.balance) { l.balance = it.balance; if (l.qty > it.balance) { l.qty = it.balance; changed++; } }
+    return true;
+  });
+  renderLines();
+  if (changed) $('pName').textContent = 'ปรับรายการตามคงเหลือล่าสุดแล้ว ตรวจจำนวนก่อนส่ง';
+}
+
+function onBoot(b, items){
   BOOT = b;
   $('org').textContent = b.org;
 
@@ -664,7 +696,8 @@ function onBoot(b){
   fillSel($('rDept'), b.departments, 'ไม่ระบุ');
   fillSel($('dRecvType'), b.receiverTypes, 'ไม่ระบุ');
   $('placeList').innerHTML = (b.places || []).map(p => '<option value="' + esc(p) + '">').join('');
-  google.script.run.withSuccessHandler(onItems).withFailureHandler(fail).listItems();
+  if (items) onItems(items);
+  else google.script.run.withSuccessHandler(onItems).withFailureHandler(fail).listItems();
 }
 
 

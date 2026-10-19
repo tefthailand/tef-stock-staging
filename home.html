@@ -2,11 +2,12 @@
 <html lang="th">
 <head>
 <!-- v33: หน้าเว็บบน GitHub Pages เรียกหลังบ้านผ่าน assets/tef-api.js (google.script.run แบบเดิม) -->
+<link rel="preconnect" href="https://script.google.com" crossorigin>
+<link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
 <script src="assets/config.js"></script>
 <script src="assets/tef-api.js"></script>
 <script src="assets/i18n.js"></script>
 <script src="assets/tef-shell.js"></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <base target="_top">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -131,6 +132,17 @@ function fail(err){
 }
 function load(){
   google.script.run.withSuccessHandler(function(b){ B = b; render(); }).withFailureHandler(fail).homeBoot();
+}
+/* v35: เปิดหน้าแรก แสดงที่จำไว้ทันที แล้วอัปเดต · ถ้าผู้ใช้เริ่มกดอะไรแล้ว ไม่วาดทับ ให้ปุ่มรีเฟรชแทน */
+var TOUCHED = false;
+function firstLoad(){
+  if (!(window.TEFAPI && TEFAPI.fresh)) return load();
+  document.addEventListener('click', function(e){ if (e.target.closest && e.target.closest('#app')) TOUCHED = true; }, true);
+  document.addEventListener('input', function(){ TOUCHED = true; }, true);
+  TEFAPI.fresh('home', 'homeBoot', [], function(b, cached){
+    if (!cached && TOUCHED && B) { toast('มีข้อมูลใหม่ กดรีเฟรชหน้าเพื่อดู'); return; }
+    B = b; render();
+  }, function(e, had){ if (!had) fail(e); else toast('อัปเดตไม่สำเร็จ แสดงข้อมูลที่จำไว้', true); });
 }
 function twoStep(btn, confirmText, run){
   var orig = btn.textContent, armed = false, t = null;
@@ -418,7 +430,7 @@ function renderAdmin(app, A){
   });
   wrap.appendChild(tb); app.appendChild(wrap);
 }
-load();
+firstLoad();
 </script>
 </body>
 </html>

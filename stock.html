@@ -3,11 +3,12 @@
 <head>
 <title>รายการพัสดุ — TEF</title>
 <!-- v33: หน้าเว็บบน GitHub Pages เรียกหลังบ้านผ่าน assets/tef-api.js (google.script.run แบบเดิม) -->
+<link rel="preconnect" href="https://script.google.com" crossorigin>
+<link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
 <script src="assets/config.js"></script>
 <script src="assets/tef-api.js"></script>
 <script src="assets/i18n.js"></script>
 <script src="assets/tef-shell.js"></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <base target="_top">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -158,7 +159,6 @@ body{margin:0;background:var(--tef-bg);color:var(--tef-text);font-family:var(--t
 <a class="btn" id="baskGo" target="_top" href="#">ไปหน้าเบิก</a>
 </div></div>
 <div class="mod" id="mod"><div class="box" id="modBox"></div></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 var D = { items: [], app: '', admin: false };
 var ALL = [];          // รายการแบบรวมกลุ่มไซส์
@@ -184,7 +184,10 @@ var $ = function (i) { return document.getElementById(i); };
 function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 var ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>';
 window.addEventListener('DOMContentLoaded', function () {
-google.script.run.withSuccessHandler(onList).withFailureHandler(fail).stockList();
+TEFAPI.fresh('stock', 'stockList', [], onList, function (e, had) {   // v35: แสดงรายการที่จำไว้ทันที แล้วอัปเดต
+if (!had) return fail(e);
+$('cnt').textContent = $('cnt').textContent.replace(' · กำลังอัปเดตยอดล่าสุด…', '') + ' · อัปเดตไม่สำเร็จ แสดงยอดที่จำไว้';
+});
 $('q').addEventListener('input', function(){ render(true); });
 $('qx').addEventListener('click', function(){ $('q').value=''; render(true); $('q').focus(); });
 $('onlyStock').addEventListener('change', function(){ render(true); });
@@ -195,8 +198,10 @@ $('mod').addEventListener('click', function(e){ if (e.target === $('mod')) close
 document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeMod(); });
 });
 function fail(e){ $('cnt').textContent = 'โหลดรายการไม่สำเร็จ: ' + (e && e.message ? e.message : e); }
-function onList(d){
+var LOADED = false, PV = {};   // v35: โหลดครั้งแรกแล้วหรือยัง · รหัส -> เวลารูป (ใช้ตรวจรูปที่จำไว้)
+function onList(d, cached){
 D = d || D;
+PV = {}; (D.items || []).forEach(function (x) { if (x.p > 0 && x.pv) PV[x.c] = x.pv; });
 var map = {};
 (D.items || []).forEach(function (it) {
 var sp = splitName(it.n);
@@ -215,9 +220,20 @@ grp.sort(function (a, b) { return szRank(a.sz) - szRank(b.sz) || (a.sz < b.sz ? 
 ALL.push(mk(grp[0].base, grp));
 } else { ALL.push(mk(it.n, [it])); }
 });
-cartRestore();
-buildChips(); buildAdmin(); render(true);
+if (!LOADED) { cartRestore(); buildAdmin(); } else cartClamp();
+buildChips(); render(!LOADED);
 baskUi();
+if (cached) $('cnt').textContent += ' · กำลังอัปเดตยอดล่าสุด…';
+LOADED = true;
+}
+/* ยอดใหม่มาแล้ว: ปรับตะกร้าให้ไม่เกินคงเหลือล่าสุด ตัดรายการที่หมดหรือถูกปิด */
+function cartClamp(){
+var byCode = {}; (D.items || []).forEach(function (it) { byCode[it.c] = it; });
+Object.keys(BASK).forEach(function (code) {
+var it = byCode[code];
+if (!it || !(it.b > 0)) { delete BASK[code]; return; }
+BASK[code].b = it.b; BASK[code].q = Math.min(BASK[code].q, it.b);
+});
 }
 function mk(name, arr){
 var tot = 0, ph = ''; arr.forEach(function (x) { tot += x.b; if (!ph && x.p > 0) ph = x.c; });
@@ -433,16 +449,30 @@ if (!code || PH[code] || ASKED[code]) return;
 ASKED[code] = 1; QUE.push(code);
 if (!TMR) TMR = setTimeout(flush, 120);
 }
-function flush(){
-TMR = null;
-var b = QUE.splice(0, 8); if (!b.length) return;
-google.script.run.withSuccessHandler(function (m) {
+var INF = 0;                    // v35: ขอรูปพร้อมกันได้ 3 ชุด ชุดละ 12 · ดูรูปที่จำไว้ในเครื่องก่อน
+function showPh(m){
 Object.keys(m || {}).forEach(function (k) {
 PH[k] = m[k];
 Array.prototype.forEach.call(document.querySelectorAll('.ph[data-code="' + k + '"]'), function (el) { el.innerHTML = '<img src="' + m[k] + '" alt="">'; });
 });
-if (QUE.length) flush();
-}).withFailureHandler(function () { if (QUE.length) flush(); }).stockPhotos(b);
+}
+function flush(){
+TMR = null;
+while (INF < 3 && QUE.length) {
+INF++;
+(function (b) {
+var vm = {}; b.forEach(function (c) { vm[c] = PV[c]; });
+var done = function () { INF--; if (QUE.length) flush(); };
+var local = window.TEFAPI && TEFAPI.photoGet ? TEFAPI.photoGet(b.map(function (c) { return { c: c, v: PV[c] }; })) : Promise.resolve({});
+local.then(function (hit) {
+showPh(hit);
+var miss = b.filter(function (c) { return !hit[c]; });
+if (!miss.length) return done();
+google.script.run.withSuccessHandler(function (m) { showPh(m); if (window.TEFAPI && TEFAPI.photoPut) TEFAPI.photoPut(m || {}, vm); done(); })
+.withFailureHandler(done).stockPhotos(miss);
+});
+})(QUE.splice(0, 12));
+}
 }
 function openMod(c){
 var rows = '';
@@ -525,6 +555,9 @@ $('baskGo').href = href; var cn = $('cartN'); if (cn) { cn.textContent = codes.l
 }
 function buildAdmin(){
 if (!D.admin) return;
+if (!window.JSZip && !document.getElementById('jszipLib')) {   // v35: ตัวแตกไฟล์ ZIP โหลดเฉพาะผู้ดูแล
+var zs = document.createElement('script'); zs.id = 'jszipLib'; zs.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'; document.head.appendChild(zs);
+}
 $('admBox').innerHTML = '<details class="adm"><summary>สำหรับผู้ดูแล: อัปโหลดรูปพัสดุ</summary>' +
 '<p>เลือกไฟล์ ZIP หรือรูปที่ตั้งชื่อตามรหัส เช่น TEF-001.jpg (รูปที่สอง TEF-001_2.jpg) · รูปเดิมของรหัสนั้นจะถูกแทนที่</p>' +
 '<input type="file" id="upF" multiple accept=".zip,image/*"> <button class="btn" id="upGo" type="button">เริ่มอัปโหลด</button>' +
