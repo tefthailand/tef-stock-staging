@@ -232,7 +232,7 @@ body{background:var(--tef-bg);color:var(--tef-text);font-family:var(--tef-font);
       <div class="col-12 col-md-6">
         <label class="form-label" for="tReq">เลขที่เอกสารเบิก <span class="req">*</span></label>
         <input class="form-control" id="tReq" placeholder="REQ-2569-0001" autocomplete="off"
-               onkeydown="if(event.key==='Enter')loadReq()">
+               onkeydown="if(event.key==='Enter')loadReq()" oninput="retTyping()">
       </div>
       <div class="col-12 col-md-6">
         <button class="btn btn-tef-ghost" onclick="loadReq()">ดึงรายการ</button>
@@ -974,14 +974,21 @@ function readUpload(file){
 /* ═══════════ คืนของ ═══════════ */
 let REQ = null;
 
+/* v35.6: พิมพ์เลขใหม่ → ซ่อนข้อความเก่า และล้างรายการของเอกสารเดิม กันคืนผิดใบ */
+function retTyping(){
+  hideOut();
+  const v = $('tReq').value.trim().toUpperCase();
+  if (REQ && String(REQ.id || '').toUpperCase() !== v) { REQ = null; $('retBox').innerHTML = ''; }
+}
+
 function loadReq(){
   const id = $('tReq').value.trim();
-  if (!id) return showErr('กรุณากรอกเลขที่เอกสารเบิก');
+  if (!id) return showErr('กรุณากรอกเลขที่เอกสารเบิก', 'ดึงรายการไม่ได้');
   $('retBox').innerHTML = '<p class="hint mt-3">กำลังดึงรายการ…</p>';
   hideOut();
   google.script.run
     .withSuccessHandler(renderReq)
-    .withFailureHandler(e => { $('retBox').innerHTML = ''; REQ = null; showErr(e.message); })
+    .withFailureHandler(e => { $('retBox').innerHTML = ''; REQ = null; showErr(e.message, 'ดึงรายการไม่ได้'); })   // v35.6: ไม่ใช่การบันทึก
     .getRequisition(id, TOK);
 }
 
@@ -1186,9 +1193,9 @@ function itemName(code){
   return it ? it.name : '';
 }
 
-function showErr(m){
+function showErr(m, title){
   const o = $('out'); o.className = 'result err';
-  $('outSt').textContent = 'บันทึกไม่ผ่าน';
+  $('outSt').textContent = title || 'บันทึกไม่ผ่าน';
   $('outWhy').textContent = m;
   $('outPrint').style.display = 'none';
   window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
