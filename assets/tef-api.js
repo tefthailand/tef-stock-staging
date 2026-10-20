@@ -97,9 +97,35 @@
                getRequisition: 1, getPrintHtml: 1, listPending: 1, getBootstrapData: 1, countListItems: 1, getItem: 1,
                getProgress: 1, facetData: 1, dashData: 1, adminBoot: 1, reqDocument: 1 };
   var WAIT = [1500, 4000];
+  /**
+   * v35.5 ยิงคู่: วัดจริง 20 ต.ค. โค้ดหลังบ้านทำงาน 1–2 วิ แต่บริการส่งผลกลับของ Google (googleusercontent)
+   * บางครั้งค้าง ~30 วิ แบบสุ่ม → คำสั่งอ่านอย่างเดียวที่ยังไม่ตอบใน 5 วิ ยิงซ้ำอีกรอบคู่กัน ใช้คำตอบที่มาก่อน
+   * คำสั่งบันทึกไม่ยิงซ้ำ (กันบันทึกซ้ำ) · ข้อผิดพลาดที่ไม่ใช่เน็ต (เช่นหมดเวลาเข้าใช้) ตอบกลับทันที
+   */
+  var HEDGE_MS = [5000, 12000];        // ยิงรอบ 2 ที่ 5 วิ · รอบ 3 ที่ 12 วิ (เฉพาะเมื่อยังไม่มีคำตอบ)
+  function postHedged(fn, args) {
+    if (!SAFE[fn]) return post(fn, args);
+    return new Promise(function (ok, no) {
+      var done = false, pending = 0, timers = [];
+      var stop = function () { timers.forEach(clearTimeout); };
+      var fire = function () {
+        pending++;
+        post(fn, args).then(function (d) {
+          pending--;
+          if (!done) { done = true; stop(); ok(d); }
+        }, function (e) {
+          pending--;
+          if (done) return;
+          if (!e || e.code !== 'NETWORK' || pending === 0) { done = true; stop(); no(e); }
+        });
+      };
+      fire();
+      HEDGE_MS.forEach(function (ms) { timers.push(setTimeout(function () { if (!done) fire(); }, ms)); });
+    });
+  }
   function postRetry(fn, args, n) {
     n = n || 0;
-    return post(fn, args).catch(function (e) {
+    return postHedged(fn, args).catch(function (e) {
       if (e && e.code === 'NETWORK' && SAFE[fn] && n < WAIT.length)
         return new Promise(function (ok) { setTimeout(ok, WAIT[n]); }).then(function () { return postRetry(fn, args, n + 1); });
       throw e;
