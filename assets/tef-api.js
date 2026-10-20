@@ -9,6 +9,7 @@
  * ที่เก็บในเบราว์เซอร์: localStorage tef_ses (บัตรผ่านของระบบ 6 ชม.), tef_by (GOOGLE/EMAIL), tef_names (ชื่อสินค้าอังกฤษ)
  *                      tef_idt (บัตร Google แบบเดิม ≤ 1 ชม. เหลือเฉพาะเครื่องที่เข้าก่อน v35 จะถูกแลกเป็นบัตรผ่านอัตโนมัติ)
  *                      sessionStorage tef_me (ชื่อ/บทบาท จำไว้ 5 นาที)
+ *   v35.7: TEFAPI.mine(key) กุญแจข้อมูลส่วนตัวผูกกับบัตรผ่าน · TEFAPI.remember(key, data) จำผลที่โหลดใหม่หลังบันทึก
  */
 (function () {
   'use strict';
@@ -160,6 +161,12 @@
     return call(fn, args || []).then(function (d) {
       cacheWrite(key, d); onData(d, false, Date.now()); return d;
     }, function (e) { if (onFail) onFail(e, !!c); else if (window.console) console.error('[TEF]', fn, e); });
+  }
+  /** v35.7: กุญแจของข้อมูลส่วนตัว ผูกกับบัตรผ่านของคนที่เข้าระบบอยู่ · เข้าระบบใหม่ = กุญแจใหม่ คนถัดไปที่ใช้เครื่องเดียวกันไม่เห็นของคนก่อน */
+  function mine(key) {
+    var s = ls(K_SES) || ls(K_IDT) || '', h = 5381;
+    for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    return key + '_' + (h >>> 0).toString(36);
   }
   // รูปพัสดุ: จำใน IndexedDB ตามรหัส + เวลาบันทึกรูป (เปลี่ยนรูปแล้วโหลดใหม่เอง)
   var idbP = null;
@@ -342,7 +349,7 @@
     }
   };
 
-  window.TEFAPI = { call: call, fresh: fresh, cacheRead: cacheRead, photoGet: photoGet, photoPut: photoPut,
+  window.TEFAPI = { call: call, fresh: fresh, cacheRead: cacheRead, remember: cacheWrite, mine: mine, photoGet: photoGet, photoPut: photoPut,
                     PAGES: PAGES, pageKey: pageKey, url: function (page, q) {
     var f = PAGES[page] || 'index.html'; return C.SITE + f + (q ? '?' + q : '');
   } };

@@ -64,7 +64,7 @@ var D = {
 'นโยบายความเป็นส่วนตัว': 'Privacy policy', 'ชุดทดสอบ': 'Staging', 'ข้าพเจ้ารับทราบ': 'I have read the ',
 'กรุณาทำเครื่องหมายรับทราบนโยบายความเป็นส่วนตัว': 'Please tick to confirm you have read the privacy policy',
 'เลือกบัญชีที่จะใช้ แล้วเข้าสู่ระบบ': 'Choose the account to use, then sign in', 'กรุณาเข้าสู่ระบบอีกครั้ง': 'Please sign in again',
-'หมดเวลาการเข้าใช้ กรุณาเข้าสู่ระบบอีกครั้ง': 'Your session has timed out. Please sign in again.', 'หมดเวลาการเข้าใช้ กรุณาเข้าสู่ระบบอีกครั้ง รายการที่เลือกไว้ยังอยู่': 'Your session has timed out. Please sign in again. Your selected items are kept.', 'ยืนยันด้วยรหัสทางอีเมล': 'Verified by email code', 'ดึงรายการไม่ได้': 'Could not load the document', 'มีสิทธิ์ขาด': 'Final authority',
+'หมดเวลาการเข้าใช้ กรุณาเข้าสู่ระบบอีกครั้ง': 'Your session has timed out. Please sign in again.', 'หมดเวลาการเข้าใช้ กรุณาเข้าสู่ระบบอีกครั้ง รายการที่เลือกไว้ยังอยู่': 'Your session has timed out. Please sign in again. Your selected items are kept.', 'ยืนยันด้วยรหัสทางอีเมล': 'Verified by email code', 'ดึงรายการไม่ได้': 'Could not load the document', 'มีข้อมูลใหม่ · รีเฟรชหน้าเพื่อดู': 'New data available · refresh the page to see it', 'อัปเดตไม่สำเร็จ แสดงข้อมูลที่จำไว้': 'Could not update · showing saved data','มีสิทธิ์ขาด': 'Final authority',
 'อีเมลที่ใช้เข้าสู่ระบบ': 'Email used to sign in', 'กรุณาเข้าสู่ระบบ': 'Please sign in',
 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจอินเทอร์เน็ตแล้วลองใหม่': 'Cannot reach the server. Check your connection and try again.',
 'บัตรผ่าน Google หมดอายุหรือไม่ถูกต้อง กรุณาเข้าสู่ระบบใหม่': 'Your Google sign-in has expired or is invalid. Please sign in again.',
@@ -286,6 +286,9 @@ var P = [
   [new RegExp('^นับแล้ว ' + N + ' จาก ' + N + ' รายการ$'), function (m) { return m[1] + ' of ' + m[2] + ' items counted'; }],
   [new RegExp('^รวม ' + N + '$'), function (m) { return 'Total ' + m[1]; }],
   [/^เครื่อง (.+)$/, function (m) { return 'Units ' + m[1]; }],
+  [/^ข้อมูล ณ (.+) \(ที่จำไว้ในเครื่อง · กำลังอ่านยอดใหม่…\)$/, function (m) { return 'As of ' + m[1] + ' (saved on this device · refreshing…)'; }],   // v35.7
+  [/^ข้อมูล ณ (.+) \(ที่จำไว้ในเครื่อง · อ่านยอดใหม่ไม่สำเร็จ\)$/, function (m) { return 'As of ' + m[1] + ' (saved on this device · refresh failed)'; }],
+  [/^ข้อมูลที่จำไว้ (\d\d:\d\d) · กำลังอัปเดต…$/, function (m) { return 'Saved at ' + m[1] + ' · updating…'; }],
   [/^ข้อมูล ณ (.+)$/, function (m) { return 'As of ' + m[1]; }],
   [/^สวัสดี (.+)$/, function (m) { return 'Hello ' + m[1]; }],
   [/^บันทึกแล้ว เลขที่ (\S+) · สถานะ (.+)$/, function (m) { return 'Saved — no. ' + m[1] + ' · status ' + ST(m[2]); }],
