@@ -336,10 +336,28 @@ let SUMMARY = null;    // ผลลัพธ์ล่าสุดที่บั
 const $ = id => document.getElementById(id);
 
 // ───────── เปิดหน้า: โหลดค่าตั้งต้น ─────────
+// v35.7: แสดงค่าตั้งต้นและรายการที่จำไว้ในเครื่องทันที แล้วอัปเดตจากหลังบ้าน (2 คำสั่งส่งพร้อมกัน)
+//        ถ้าเริ่มกรอกแล้ว ไม่เติมช่องเลือกทับ อัปเดตแค่แถบความคืบหน้า · รายละเอียดรายการที่เลือกอ่านสดเสมอ (getItem)
+let TOUCHED = false;
+document.addEventListener('input', () => { TOUCHED = true; }, true);
+document.addEventListener('change', () => { TOUCHED = true; }, true);
 window.addEventListener('DOMContentLoaded', () => {
-  google.script.run.withSuccessHandler(boot).withFailureHandler(fail).getBootstrapData();
-  google.script.run.withSuccessHandler(fillItems).withFailureHandler(fail).countListItems();
+  if (!(window.TEFAPI && TEFAPI.fresh && TEFAPI.mine)) {
+    google.script.run.withSuccessHandler(boot).withFailureHandler(fail).getBootstrapData();
+    google.script.run.withSuccessHandler(fillItems).withFailureHandler(fail).countListItems();
+    return;
+  }
+  let booted = false;
+  TEFAPI.fresh(TEFAPI.mine('countboot'), 'getBootstrapData', [], d => {
+    if (booted && TOUCHED) paintProgress(d.progress); else boot(d);
+    booted = true;
+  }, (e, had) => { if (!had) fail(e); });
+  TEFAPI.fresh(TEFAPI.mine('countitems'), 'countListItems', [], fillItems, (e, had) => { if (!had) fail(e); });
 });
+function fillItemsSaved(list){
+  if (window.TEFAPI && TEFAPI.remember && TEFAPI.mine) TEFAPI.remember(TEFAPI.mine('countitems'), list);
+  fillItems(list);
+}
 
 function boot(d){
   $('orgName').textContent = d.orgName;
@@ -508,7 +526,7 @@ function resetAll(){
   $('viewForm').style.display = '';
   $('printArea').innerHTML = '';
   hideErr(); calcDiff();
-  google.script.run.withSuccessHandler(fillItems).countListItems();
+  google.script.run.withSuccessHandler(fillItemsSaved).countListItems();
   google.script.run.withSuccessHandler(paintProgress).getProgress();
   $('codeInput').focus();
 }
@@ -664,14 +682,19 @@ function fail(e){ showErr('เกิดข้อผิดพลาด: ' + e.mes
   }
 
   F.innerHTML = '<p class="fc-hint">กำลังโหลดรายการ…</p>';
-  google.script.run.withSuccessHandler(function(d){
+  var gotFacet = function(d){
     ALL = (d && d.items) ? d.items : [];
     if (!ALL.length){ F.innerHTML = '<p class="fc-hint">ยังไม่มีข้อมูลรายการ</p>'; return; }
-    draw();
-  }).withFailureHandler(function(e){
+    draw();                                   // วาดใหม่ได้ ตัวเลือกที่กดไว้ (picked) ยังอยู่
+  };
+  var noFacet = function(e){
     F.innerHTML = '<p class="fc-hint">โหลดรายการไม่สำเร็จ ' +
       esc(e && e.message ? e.message : e) + '</p>';
-  }).facetData();
+  };
+  // v35.7: แสดงรายการที่จำไว้ในเครื่องทันที แล้วอัปเดตจากหลังบ้าน
+  if (window.TEFAPI && TEFAPI.fresh && TEFAPI.mine)
+    TEFAPI.fresh(TEFAPI.mine('countfacet'), 'facetData', [], gotFacet, function(e, had){ if (!had) noFacet(e); });
+  else google.script.run.withSuccessHandler(gotFacet).withFailureHandler(noFacet).facetData();
 })();
 </script>
 <!-- ═══════════════════════════════════════════════════════════════

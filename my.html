@@ -88,18 +88,37 @@ var CHIP = { 'รออนุมัติ':'warn', 'อนุมัติแล�
              'รอตรวจ':'warn', 'ยกเลิก':'bad', 'จ่ายออกแล้ว':'good' };   // v34
 var CONSENT = 'ข้าพเจ้ายืนยันรายการในเอกสารนี้ และตกลงลงนามด้วยวิธีอิเล็กทรอนิกส์ (พ.ร.บ.ธุรกรรมทางอิเล็กทรอนิกส์ พ.ศ. 2544)';
 
+var TOUCHED = false;
 window.addEventListener('DOMContentLoaded', function(){
-  google.script.run.withSuccessHandler(function(u){ $('backBtn').href = u; }).appUrl();
+  $('backBtn').href = (window.TEF_CONFIG && TEF_CONFIG.SITE) || './';   // v35.7: ลิงก์หน้าแรกรู้อยู่แล้ว ไม่ต้องถามหลังบ้าน (appUrl)
   $('list').addEventListener('click', onAct);                     // v34 ปุ่มในแต่ละคำขอ
   $('list').addEventListener('change', onFile);
-  load();
+  $('list').addEventListener('click', function(){ TOUCHED = true; }, true);
+  first();
 });
 
+/* v35.7: เปิดหน้า = แสดงคำขอที่จำไว้ในเครื่องทันที แล้วอัปเดตจากหลังบ้าน (ถ้ากดอะไรไปแล้ว ไม่วาดทับ) */
+function first(){
+  if (!(window.TEFAPI && TEFAPI.fresh && TEFAPI.mine)) return load();
+  var shown = false;
+  TEFAPI.fresh(TEFAPI.mine('my'), 'myRequests', [], function(rows, cached, at){
+    if (cached) { render(rows); shown = true; $('who').textContent = 'ข้อมูลที่จำไว้ ' + hhmm(at) + ' · กำลังอัปเดต…'; return; }
+    if (shown && TOUCHED) { $('who').textContent = 'มีข้อมูลใหม่ · รีเฟรชหน้าเพื่อดู'; return; }
+    render(rows);
+  }, function(e, had){ if (!had) showFail(e); else $('who').textContent = 'อัปเดตไม่สำเร็จ แสดงข้อมูลที่จำไว้'; });
+}
+function hhmm(t){ var d = new Date(t); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+function showFail(e){
+  $('list').innerHTML = '<div class="tef-card" style="color:var(--tef-danger)">' + esc((e && e.message) || e) + '</div>';
+  $('who').textContent = '';
+}
+
+/** โหลดใหม่จากหลังบ้าน (หลังลงนาม แนบใบ ยกเลิก) แล้วจำผลไว้ */
 function load(){
-  google.script.run.withSuccessHandler(render).withFailureHandler(function(e){
-    $('list').innerHTML = '<div class="tef-card" style="color:var(--tef-danger)">' + esc(e.message) + '</div>';
-    $('who').textContent = '';
-  }).myRequests();
+  google.script.run.withSuccessHandler(function(rows){
+    if (window.TEFAPI && TEFAPI.remember && TEFAPI.mine) TEFAPI.remember(TEFAPI.mine('my'), rows);
+    render(rows);
+  }).withFailureHandler(showFail).myRequests();
 }
 
 /* ═══ v34 ลงนาม แนบใบ พิมพ์ ยกเลิก ═══ */

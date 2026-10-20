@@ -248,11 +248,37 @@ function load() {
   $('rf').disabled = true;
   $('rf').textContent = 'กำลังอ่าน…';
   $('asof').textContent = 'กำลังอ่านยอดจากชีต…';
-  google.script.run.withSuccessHandler(render).withFailureHandler(failed).dashData();
+  google.script.run.withSuccessHandler(function (d) {
+    if (window.TEFAPI && TEFAPI.remember && TEFAPI.mine) TEFAPI.remember(TEFAPI.mine('dash'), d);
+    render(d);
+  }).withFailureHandler(failed).dashData();
+}
+
+/* v35.7: เปิดหน้า = แสดงสรุปที่จำไว้ในเครื่องทันที แล้วอ่านยอดใหม่จากชีตตามหลัง */
+function first() {
+  if (!(window.TEFAPI && TEFAPI.fresh && TEFAPI.mine)) return load();
+  $('rf').disabled = true;
+  $('rf').textContent = 'กำลังอ่าน…';
+  $('asof').textContent = 'กำลังอ่านยอดจากชีต…';
+  var C = null;
+  TEFAPI.fresh(TEFAPI.mine('dash'), 'dashData', [], function (d, cached) {
+    render(d);
+    if (cached) {
+      C = d;
+      $('asof').textContent = 'ข้อมูล ณ ' + d.asof + ' (ที่จำไว้ในเครื่อง · กำลังอ่านยอดใหม่…)';
+      $('rf').disabled = true;
+      $('rf').textContent = 'กำลังอ่าน…';
+    }
+  }, function (e, had) {
+    if (!had) return failed(e);
+    $('asof').textContent = 'ข้อมูล ณ ' + (C ? C.asof : '-') + ' (ที่จำไว้ในเครื่อง · อ่านยอดใหม่ไม่สำเร็จ)';
+    $('rf').disabled = false;
+    $('rf').textContent = 'ลองใหม่';
+  });
 }
 
 $('rf').addEventListener('click', load);
-load();
+first();
 </script>
 </body>
 </html>
