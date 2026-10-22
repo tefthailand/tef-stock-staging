@@ -722,7 +722,7 @@ function onBoot(b, items){
   }
 
   $('appWrap').style.display = '';
-  if (/^EXTERNAL/.test(String(b.me.role || ''))) {                  // v34 แบบ ข.: ภายนอกขอจ่ายออกเองไม่ได้
+  if (String(b.me.role || '').toUpperCase() !== 'ADMIN'){    document.querySelectorAll('.tef-tab[data-m="dis"]').forEach(x => x.style.display = 'none');  }  if (/^EXTERNAL/.test(String(b.me.role || ''))) {                  // v34 แบบ ข.: ภายนอกขอจ่ายออกเองไม่ได้
     const g = $('rKindGive'); if (g) { g.closest('label').style.display = 'none'; $('rKindBorrow').checked = true; syncKind(); }
   }
   const via = (b.me.authBy || (window.TEFAuth ? TEFAuth.authBy() : '')) === 'EMAIL' ? 'ยืนยันด้วยรหัสทางอีเมล' : 'ยืนยันด้วยบัญชี Google';   // v35
@@ -789,7 +789,7 @@ function esc(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function setMode(m){
+function setMode(m){  if (m === 'dis' && (!BOOT || !BOOT.me || String(BOOT.me.role || '').toUpperCase() !== 'ADMIN')) m = 'req';
   setTimeout(() => { if (typeof drawUnits === 'function') drawUnits(); }, 0);
   MODE = m;
   document.querySelectorAll('.tef-tab').forEach(b => b.classList.toggle('on', b.dataset.m === m));
