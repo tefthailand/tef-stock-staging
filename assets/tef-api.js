@@ -95,18 +95,21 @@
    */
   var SAFE = { apiPing: 1, sessionCheck: 1, googleSession: 1, meInfo: 1, namesEn: 1, appUrl: 1, homeBoot: 1, getBoot: 1,
                myRequests: 1, surveyBoot: 1, stockList: 1, stockPhotos: 1, radioUnitList: 1, listItems: 1, requestBoot: 1,
-               getRequisition: 1, getPrintHtml: 1, listPending: 1, getBootstrapData: 1, countListItems: 1, getItem: 1,
+               getRequisition: 1, getPrintHtml: 1, listPending: 1, stockPhotoSet: 1, getBootstrapData: 1, countListItems: 1, getItem: 1,
                getProgress: 1, facetData: 1, dashData: 1, adminBoot: 1, reqDocument: 1 };
   var WAIT = [1500, 4000];
   /**
-   * v35.5 ยิงคู่: วัดจริง 20 ต.ค. โค้ดหลังบ้านทำงาน 1–2 วิ แต่บริการส่งผลกลับของ Google (googleusercontent)
-   * บางครั้งค้าง ~30 วิ แบบสุ่ม → คำสั่งอ่านอย่างเดียวที่ยังไม่ตอบใน 5 วิ ยิงซ้ำอีกรอบคู่กัน ใช้คำตอบที่มาก่อน
-   * คำสั่งบันทึกไม่ยิงซ้ำ (กันบันทึกซ้ำ) · ข้อผิดพลาดที่ไม่ใช่เน็ต (เช่นหมดเวลาเข้าใช้) ตอบกลับทันที
+   * v35.8: อ่านอย่างเดียวมีคำขอซ้ำซ้อนจากหลายตัวเริ่มต้นหน้าได้ จึงรวมคำขอเดียวกันระหว่างที่ยังรอผล
+   * และคงการยิงคู่ไว้เพียงครั้งเดียวที่ 5 วิ เผื่อ Apps Script/googleusercontent ค้างแบบสุ่ม
+   * คำสั่งบันทึกไม่รวมคำขอและไม่ยิงซ้ำ เพื่อป้องกันการบันทึกซ้ำ
    */
-  var HEDGE_MS = [2500, 7000];
+  var HEDGE_MS = [5000];
+  var INFLIGHT = Object.create(null);
   function postHedged(fn, args) {
     if (!SAFE[fn]) return post(fn, args);
-    return new Promise(function (ok, no) {
+    var key = fn + '|' + JSON.stringify(args || []);
+    if (INFLIGHT[key]) return INFLIGHT[key];
+    var p = new Promise(function (ok, no) {
       var done = false, pending = 0, timers = [];
       var stop = function () { timers.forEach(clearTimeout); };
       var fire = function () {
@@ -123,6 +126,8 @@
       fire();
       HEDGE_MS.forEach(function (ms) { timers.push(setTimeout(function () { if (!done) fire(); }, ms)); });
     });
+    INFLIGHT[key] = p.then(function (d) { delete INFLIGHT[key]; return d; }, function (e) { delete INFLIGHT[key]; throw e; });
+    return INFLIGHT[key];
   }
   function postRetry(fn, args, n) {
     n = n || 0;
@@ -150,6 +155,7 @@
     try { var o = JSON.parse(ls(K_C + key) || 'null'); if (o && o.t > Date.now() - C_AGE) return o; } catch (e) {}
     return null;
   }
+  function cacheForget(key) { try { localStorage.removeItem(K_C + key); } catch (e) {} }
   function cacheWrite(key, d) {
     try { localStorage.setItem(K_C + key, JSON.stringify({ t: Date.now(), d: d })); } catch (e) { /* ที่เก็บเต็ม: ข้าม */ }
   }
@@ -349,7 +355,7 @@
     }
   };
 
-  window.TEFAPI = { call: call, fresh: fresh, cacheRead: cacheRead, remember: cacheWrite, mine: mine, photoGet: photoGet, photoPut: photoPut,
+  window.TEFAPI = { call: call, fresh: fresh, cacheRead: cacheRead, remember: cacheWrite, invalidate: cacheForget, mine: mine, photoGet: photoGet, photoPut: photoPut,
                     PAGES: PAGES, pageKey: pageKey, url: function (page, q) {
     var f = PAGES[page] || 'index.html'; return C.SITE + f + (q ? '?' + q : '');
   } };
