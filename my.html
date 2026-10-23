@@ -114,11 +114,17 @@ function showFail(e){
 }
 
 /** โหลดใหม่จากหลังบ้าน (หลังลงนาม แนบใบ ยกเลิก) แล้วจำผลไว้ */
+var LOAD_SEQ = 0;
 function load(){
+  var seq = ++LOAD_SEQ;
   google.script.run.withSuccessHandler(function(rows){
+    if (seq !== LOAD_SEQ) return;
     if (window.TEFAPI && TEFAPI.remember && TEFAPI.mine) TEFAPI.remember(TEFAPI.mine('my'), rows);
     render(rows);
-  }).withFailureHandler(showFail).myRequests();
+  }).withFailureHandler(function(e){
+    if (seq !== LOAD_SEQ) return;
+    showFail(e);
+  }).myRequests();
 }
 
 /* ═══ v34 ลงนาม แนบใบ พิมพ์ ยกเลิก ═══ */
@@ -138,8 +144,8 @@ function actsHtml(r){
 }
 function tt(s){ return window.TEF_LANG === 'en' && window.TEF_T ? window.TEF_T(s) : s; }   // แปลเฉพาะตอนเลือก English
 function busy(id, msg){ $('who').textContent = msg + ' ' + id + '…'; }
-function done(msg){ $('who').textContent = msg; load(); }
-function oops(e){ $('who').textContent = ''; alert((e && e.message) || String(e)); load(); }
+function done(msg){ if (window.TEFAPI && TEFAPI.invalidate && TEFAPI.mine) TEFAPI.invalidate(TEFAPI.mine('my')); $('who').textContent = msg; load(); }
+function oops(e){ if (window.TEFAPI && TEFAPI.invalidate && TEFAPI.mine) TEFAPI.invalidate(TEFAPI.mine('my')); $('who').textContent = ''; alert((e && e.message) || String(e)); load(); }
 function onAct(ev){
   var b = ev.target.closest && ev.target.closest('button[data-act]'); if (!b) return;
   var id = b.getAttribute('data-id'), act = b.getAttribute('data-act');
