@@ -1153,7 +1153,7 @@ function renderReq(d){
       '<td class="num"><span id="rl' + i + '">0</span></td>' +
       '<td><select class="form-select form-select-sm" id="rc' + i + '">' + opts + '</select></td>' +
     '</tr>' +
-    (l.units && l.units.length ? '<tr><td colspan="6"><div class="hint">เลขเครื่อง: กดสลับ ฟ้า = คืน · ส้ม = ชำรุด · ขาว = ยังไม่คืน</div>' +
+    (l.units && l.units.length ? '<tr><td colspan="7"><div class="hint">เลขเครื่อง: กดสลับ ฟ้า = คืน · ส้ม = ชำรุด · ขาว = ยังไม่คืน</div>' +
       l.units.map(u => '<span class="uch on" data-l="' + i + '" data-u="' + esc(u) + '">' + esc(u) + '</span>').join('') + '</td></tr>' : '')
     ).join('');
 
