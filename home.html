@@ -252,8 +252,9 @@ function renderHomeHero(app){
   var kind = roleKind();
   var hero = el('section', 'home-hero role-' + kind);
   var copy = el('div', 'hero-copy');
-  copy.appendChild(el('h1', null, B.greet || 'ยินดีต้อนรับ / Welcome'));
-  if (B.name) copy.appendChild(el('div', 'hero-name', B.name));
+  copy.appendChild(el('h1', null, 'ยินดีต้อนรับ / Welcome'));
+  var displayName = [B.greet, B.name].filter(Boolean).join(' ');
+  if (displayName) copy.appendChild(el('div', 'hero-name', displayName));
   copy.appendChild(el('div', 'hero-sub', roleDescription(kind)));
   var role = el('div', 'hero-role');
   role.appendChild(el('span', 'chip', (B.roleLabel || 'ผู้ใช้งาน') + ' / ' + roleEnglish(kind)));
