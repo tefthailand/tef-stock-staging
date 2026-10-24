@@ -125,7 +125,7 @@ body.confirm-modal-open{overflow:hidden}
 @media(max-width:700px){
   .home-hero{display:block;padding:20px}
   .home-hero .hero-actions{justify-content:flex-start;margin-top:16px}
-  .home-hero a{flex:1 1 180px}
+  .home-hero a{flex:1 1 180px;min-width:0;white-space:normal;text-align:center;overflow-wrap:anywhere}
 }
 
 /* role-aware home layout */
@@ -259,13 +259,16 @@ function roleKind(){
   if (B && /@tefthailand\.com$/i.test(B.email || '')) return 'staff';
   return 'external';
 }
+function homeTx(th, en){
+  return window.TEF_LANG === 'en' ? en : th;
+}
 function roleEnglish(kind){
   return kind === 'admin' ? 'Admin' : (kind === 'staff' ? 'TEF Staff' : 'External user');
 }
 function roleDescription(kind){
-  if (kind === 'admin') return 'งานที่ต้องดำเนินการของผู้ดูแล / Admin tasks waiting for action';
-  if (kind === 'staff') return 'จัดการพัสดุและติดตามคำขอของคุณ / Manage stock requests and track your work';
-  return 'ขอเบิก ติดตามสถานะ และแจ้งคืน / Request items, track status, and report returns';
+  if (kind === 'admin') return homeTx('งานที่ต้องดำเนินการของผู้ดูแล', 'Admin tasks waiting for action');
+  if (kind === 'staff') return homeTx('จัดการพัสดุและติดตามคำขอของคุณ', 'Manage stock requests and track your work');
+  return homeTx('ขอเบิก ติดตามสถานะ และแจ้งคืน', 'Request items, track status, and report returns');
 }
 function adminFirstTarget(){
   var A = B && B.admin || {};
@@ -273,18 +276,18 @@ function adminFirstTarget(){
   if ((A.toDispatch || []).length) return '#sec-dispatch';
   if ((A.returns || []).length) return '#sec-return';
   if ((A.overdue || []).length) return '#sec-overdue';
-  return '#sec-review';
+  return hasMenuPage('admin') ? pageHref('admin') : pageHref('dash');
 }
 function renderHomeHero(app){
   var kind = roleKind();
   var hero = el('section', 'home-hero role-' + kind);
   var copy = el('div', 'hero-copy');
-  copy.appendChild(el('h1', null, 'ยินดีต้อนรับ / Welcome'));
+  copy.appendChild(el('h1', null, homeTx('ยินดีต้อนรับ', 'Welcome')));
   var displayName = [B.greet, B.name].filter(Boolean).join(' ');
   if (displayName) copy.appendChild(el('div', 'hero-name', displayName));
   copy.appendChild(el('div', 'hero-sub', roleDescription(kind)));
   var role = el('div', 'hero-role');
-  role.appendChild(el('span', 'chip', (B.roleLabel || 'ผู้ใช้งาน') + ' / ' + roleEnglish(kind)));
+  role.appendChild(el('span', 'chip', (B.roleLabel || homeTx('ผู้ใช้งาน', 'User')) + ' / ' + roleEnglish(kind)));
   if (B.email) role.appendChild(document.createTextNode('  ' + B.email));
   copy.appendChild(role);
   hero.appendChild(copy);
@@ -292,18 +295,18 @@ function renderHomeHero(app){
   var actions = el('div', 'hero-actions');
   var primary = el('a', 'hero-primary');
   if (kind === 'admin') {
-    primary.textContent = 'ไปยังงานที่ต้องดำเนินการ / View pending work';
+    primary.textContent = homeTx('ไปยังงานที่ต้องดำเนินการ', 'View pending work');
     primary.href = adminFirstTarget();
   } else {
-    primary.textContent = kind === 'staff' ? 'สร้างรายการใหม่ / New request' : 'เริ่มขอเบิก / Start a request';
+    primary.textContent = kind === 'staff' ? homeTx('สร้างรายการใหม่', 'New request') : homeTx('เริ่มขอเบิก', 'Start a request');
     primary.href = B.base + '?page=index';
-    var secondary = el('a', 'hero-secondary', 'คำขอของฉัน / My requests');
+    var secondary = el('a', 'hero-secondary', homeTx('คำขอของฉัน', 'My requests'));
     secondary.href = B.base + '?page=my';
     actions.appendChild(secondary);
   }
   actions.appendChild(primary);
   if (kind === 'admin') {
-    var dash = el('a', 'hero-secondary', 'ดูสรุปภาพรวม / Dashboard');
+    var dash = el('a', 'hero-secondary', homeTx('ดูสรุปภาพรวม', 'Dashboard'));
     dash.href = B.base + '?page=dash';
     actions.appendChild(dash);
   }
@@ -332,17 +335,17 @@ function renderMainTasks(app){
   var kind = roleKind();
   var tasks = [];
   if (kind === 'admin') {
-    tasks.push(['#sec-review', '✅', 'ตรวจงานค้าง', 'ดูคำขอที่รอตรวจ อนุมัติ หรือดำเนินการต่อ']);
-    if (hasMenuPage('admin')) tasks.push([pageHref('admin'), '⚙️', 'จัดการระบบ', 'ผู้ใช้ สิทธิ์ และการตั้งค่าที่เกี่ยวข้อง']);
-    if (hasMenuPage('dash')) tasks.push([pageHref('dash'), '📊', 'ดูภาพรวม', 'ตรวจยอดคงเหลือและความเคลื่อนไหว']);
+    tasks.push([adminFirstTarget(), '✅', homeTx('ตรวจงานค้าง', 'Review pending work'), homeTx('ดูคำขอที่รอตรวจ อนุมัติ หรือดำเนินการต่อ', 'Review, approve, and process pending requests')]);
+    if (hasMenuPage('admin')) tasks.push([pageHref('admin'), '⚙️', homeTx('จัดการระบบ', 'Manage system'), homeTx('ผู้ใช้ สิทธิ์ และการตั้งค่าที่เกี่ยวข้อง', 'Users, access, and related settings')]);
+    if (hasMenuPage('dash')) tasks.push([pageHref('dash'), '📊', homeTx('ดูภาพรวม', 'View overview'), homeTx('ตรวจยอดคงเหลือและความเคลื่อนไหว', 'Check balances and inventory movements')]);
   } else if (kind === 'staff') {
-    tasks.push([pageHref('index'), '📦', 'ทำรายการใหม่', 'เบิก จ่าย คืน หรือย้ายพัสดุ']);
-    if (hasMenuPage('my')) tasks.push([pageHref('my'), '📋', 'ติดตามคำขอของฉัน', 'ดูสถานะเอกสารและรายการที่เคยส่ง']);
-    if (hasMenuPage('count')) tasks.push([pageHref('count'), '🔢', 'ตรวจนับพัสดุ', 'นับของจริงเทียบกับยอดในระบบ']);
+    tasks.push([pageHref('index'), '📦', homeTx('ทำรายการใหม่', 'New request'), homeTx('เบิก จ่าย คืน หรือย้ายพัสดุ', 'Borrow, issue, return, or transfer items')]);
+    if (hasMenuPage('my')) tasks.push([pageHref('my'), '📋', homeTx('ติดตามคำขอของฉัน', 'Track my requests'), homeTx('ดูสถานะเอกสารและรายการที่เคยส่ง', 'View document status and submitted items')]);
+    if (hasMenuPage('count')) tasks.push([pageHref('count'), '🔢', homeTx('ตรวจนับพัสดุ', 'Count stock'), homeTx('นับของจริงเทียบกับยอดในระบบ', 'Count physical stock against system balances')]);
   } else {
-    tasks.push([pageHref('index'), '📝', 'เริ่มขอเบิก', 'เลือกพัสดุและส่งคำขอให้เจ้าหน้าที่']);
-    if (hasMenuPage('my')) tasks.push([pageHref('my'), '📋', 'ติดตามคำขอ', 'ตรวจสถานะคำขอและแจ้งคืน']);
-    if (hasMenuPage('stock')) tasks.push([pageHref('stock'), '🔎', 'ค้นหาพัสดุ', 'ดูรายการพัสดุที่เปิดให้ค้นหา']);
+    tasks.push([pageHref('index'), '📝', homeTx('เริ่มขอเบิก', 'Start a request'), homeTx('เลือกพัสดุและส่งคำขอให้เจ้าหน้าที่', 'Choose items and send a request to staff')]);
+    if (hasMenuPage('my')) tasks.push([pageHref('my'), '📋', homeTx('ติดตามคำขอ', 'Track requests'), homeTx('ตรวจสถานะคำขอและแจ้งคืน', 'Check request status and report returns')]);
+    if (hasMenuPage('stock')) tasks.push([pageHref('stock'), '🔎', homeTx('ค้นหาพัสดุ', 'Browse inventory'), homeTx('ดูรายการพัสดุที่เปิดให้ค้นหา', 'Browse items available to search')]);
   }
   if (!tasks.length) return;
   app.appendChild(section('งานหลักของคุณ / Main tasks', null, 'sec-main-tasks'));
