@@ -95,6 +95,18 @@ a.mc{padding:14px}
 .sg.ok{background:#e9f7f0;color:#09614a;border-color:#bfe3d1}.sg.no{background:#fff;color:#5b6b80}.sg.bad{background:#fdecec;color:#a1121a;border-color:#f3c4c4}
 .lines li.short{color:#a1121a;font-weight:600}
 .btnlike{display:inline-flex;align-items:center;justify-content:center;flex:1;font-size:15px;padding:11px 8px;border:1px solid #c3cdde;border-radius:10px;background:#fff;color:#0A2342;text-decoration:none;cursor:pointer;font-weight:600}
+
+.confirm-modal[hidden]{display:none!important}
+.confirm-modal{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:18px}
+.confirm-modal-backdrop{position:absolute;inset:0;background:rgba(18,42,82,.62);backdrop-filter:blur(2px)}
+.confirm-modal-panel{position:relative;width:min(100%,520px);background:#fff;border:1px solid var(--line2);border-radius:14px;box-shadow:0 20px 60px rgba(18,42,82,.28);padding:24px}
+.confirm-modal-panel h2{margin:0 0 8px;font-size:20px;color:var(--navy900)}
+.confirm-modal-panel h2::before{content:"";display:inline-block;width:4px;height:20px;background:var(--navy600);border-radius:2px;margin-right:9px;vertical-align:-2px}
+.confirm-modal-panel p{margin:0;color:var(--muted);line-height:1.65}
+.confirm-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+.confirm-modal-actions button{min-width:120px}
+.confirm-modal-actions .ghost{color:var(--muted);background:#fff;border:1px solid var(--line2)}
+body.confirm-modal-open{overflow:hidden}
 </style>
 </head>
 <body>
@@ -144,15 +156,35 @@ function firstLoad(){
     B = b; render();
   }, function(e, had){ if (!had) fail(e); else toast('อัปเดตไม่สำเร็จ แสดงข้อมูลที่จำไว้', true); });
 }
+var CONFIRM_RUN = null;
+function closeConfirmModal(){
+  $('#confirmModal').hidden = true;
+  $('#confirmModal').setAttribute('aria-hidden','true');
+  document.body.classList.remove('confirm-modal-open');
+  CONFIRM_RUN = null;
+}
+function openConfirmModal(message, run){
+  CONFIRM_RUN = run;
+  $('#confirmModalText').textContent = message;
+  $('#confirmModal').hidden = false;
+  $('#confirmModal').setAttribute('aria-hidden','false');
+  document.body.classList.add('confirm-modal-open');
+  setTimeout(function(){ $('#confirmModalSubmit').focus(); }, 0);
+}
+$('#confirmModalSubmit').addEventListener('click', function(){
+  var run = CONFIRM_RUN;
+  closeConfirmModal();
+  if (run) run();
+});
+document.querySelectorAll('[data-confirm-close]').forEach(function(el){ el.addEventListener('click', closeConfirmModal); });
+document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('#confirmModal').hidden) closeConfirmModal(); });
 function twoStep(btn, confirmText, run){
-  var orig = btn.textContent, armed = false, t = null;
+  var orig = btn.textContent;
   btn.addEventListener('click', function(){
-    if (!armed){
-      armed = true; btn.textContent = confirmText; btn.classList.add('arm');
-      t = setTimeout(function(){ armed = false; btn.textContent = orig; btn.classList.remove('arm'); }, 4000);
-      return;
-    }
-    clearTimeout(t); btn.disabled = true; btn.textContent = 'กำลังดำเนินการ…'; run(btn, orig);
+    if (btn.disabled) return;
+    openConfirmModal(confirmText + ' / Please confirm this action.', function(){
+      btn.disabled = true; btn.textContent = 'กำลังดำเนินการ…'; run(btn, orig);
+    });
   });
 }
 function act(fn, args, btn, orig, okMsg){
@@ -432,5 +464,17 @@ function renderAdmin(app, A){
 }
 firstLoad();
 </script>
+
+<div id="confirmModal" class="confirm-modal" hidden aria-hidden="true">
+  <div class="confirm-modal-backdrop" data-confirm-close></div>
+  <section class="confirm-modal-panel" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">
+    <h2 id="confirmModalTitle">ยืนยันการดำเนินการ / Confirm action</h2>
+    <p id="confirmModalText"></p>
+    <div class="confirm-modal-actions">
+      <button type="button" class="btn ghost" data-confirm-close>ปิด / Cancel</button>
+      <button type="button" class="btn" id="confirmModalSubmit">ยืนยัน / Confirm</button>
+    </div>
+  </section>
+</div>
 </body>
 </html>
