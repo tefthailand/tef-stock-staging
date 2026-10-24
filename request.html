@@ -1176,6 +1176,7 @@ function renderReq(d){
     '</div>' +
     '<button class="btn btn-tef mt-3" onclick="submitRet()">บันทึกการคืน</button>';
 
+  hydratePhotos($('retBox'));
   open.forEach((l, i) => {
     if (l.units && l.units.length) { $('rb' + i).readOnly = true; $('rd' + i).readOnly = true; }
     calcLost(i);
