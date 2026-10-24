@@ -229,7 +229,7 @@ function linesList(lines){
 
 function roleKind(){
   if (B && B.isAdmin) return 'admin';
-  if (B && /@tefthailand\\.com$/i.test(B.email || '')) return 'staff';
+  if (B && /@tefthailand\.com$/i.test(B.email || '')) return 'staff';
   return 'external';
 }
 function roleEnglish(kind){
