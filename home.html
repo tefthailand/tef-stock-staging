@@ -171,13 +171,18 @@ function openConfirmModal(message, run){
   document.body.classList.add('confirm-modal-open');
   setTimeout(function(){ $('#confirmModalSubmit').focus(); }, 0);
 }
-$('#confirmModalSubmit').addEventListener('click', function(){
-  var run = CONFIRM_RUN;
-  closeConfirmModal();
-  if (run) run();
-});
-document.querySelectorAll('[data-confirm-close]').forEach(function(el){ el.addEventListener('click', closeConfirmModal); });
-document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('#confirmModal').hidden) closeConfirmModal(); });
+function bindConfirmModal(){
+  var submit = $('#confirmModalSubmit');
+  if (!submit) return;
+  submit.addEventListener('click', function(){
+    var run = CONFIRM_RUN;
+    closeConfirmModal();
+    if (run) run();
+  });
+  document.querySelectorAll('[data-confirm-close]').forEach(function(el){ el.addEventListener('click', closeConfirmModal); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('#confirmModal').hidden) closeConfirmModal(); });
+}
+document.addEventListener('DOMContentLoaded', bindConfirmModal);
 function twoStep(btn, confirmText, run){
   var orig = btn.textContent;
   btn.addEventListener('click', function(){
