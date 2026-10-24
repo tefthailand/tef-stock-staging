@@ -107,6 +107,26 @@ a.mc{padding:14px}
 .confirm-modal-actions button{min-width:120px}
 .confirm-modal-actions .ghost{color:var(--muted);background:#fff;border:1px solid var(--line2)}
 body.confirm-modal-open{overflow:hidden}
+
+/* v36 role-aware home */
+.home-hero{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:14px;padding:24px 26px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 24px rgba(10,35,66,.06)}
+.home-hero .hero-copy{min-width:0}
+.home-hero h1{margin:0 0 6px;font-size:28px;color:var(--navy)}
+.home-hero .hero-name{font-size:17px;font-weight:700;color:#1e293b}
+.home-hero .hero-sub{margin:6px 0 0;color:var(--mut);font-size:14px}
+.home-hero .hero-role{margin-top:10px}
+.home-hero .hero-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;flex:0 0 auto}
+.home-hero a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:9px 16px;border-radius:10px;text-decoration:none;font-weight:700;white-space:nowrap}
+.home-hero .hero-primary{background:var(--navy);color:#fff;border:1px solid var(--navy)}
+.home-hero .hero-secondary{background:#fff;color:var(--navy);border:1px solid #cbd5e1}
+.home-hero.role-admin{border-top:4px solid var(--navy)}
+.home-hero.role-staff{border-top:4px solid #2563eb}
+.home-hero.role-external{border-top:4px solid #15803d}
+@media(max-width:700px){
+  .home-hero{display:block;padding:20px}
+  .home-hero .hero-actions{justify-content:flex-start;margin-top:16px}
+  .home-hero a{flex:1 1 180px}
+}
 </style>
 </head>
 <body>
@@ -207,21 +227,69 @@ function linesList(lines){
   return ul;
 }
 
+function roleKind(){
+  if (B && B.isAdmin) return 'admin';
+  if (B && /@tefthailand\\.com$/i.test(B.email || '')) return 'staff';
+  return 'external';
+}
+function roleEnglish(kind){
+  return kind === 'admin' ? 'Admin' : (kind === 'staff' ? 'TEF Staff' : 'External user');
+}
+function roleDescription(kind){
+  if (kind === 'admin') return 'งานที่ต้องดำเนินการของผู้ดูแล / Admin tasks waiting for action';
+  if (kind === 'staff') return 'จัดการพัสดุและติดตามคำขอของคุณ / Manage stock requests and track your work';
+  return 'ขอเบิก ติดตามสถานะ และแจ้งคืน / Request items, track status, and report returns';
+}
+function adminFirstTarget(){
+  var A = B && B.admin || {};
+  if ((A.toReview || []).length) return '#sec-review';
+  if ((A.toDispatch || []).length) return '#sec-dispatch';
+  if ((A.returns || []).length) return '#sec-return';
+  if ((A.overdue || []).length) return '#sec-overdue';
+  return '#sec-review';
+}
+function renderHomeHero(app){
+  var kind = roleKind();
+  var hero = el('section', 'home-hero role-' + kind);
+  var copy = el('div', 'hero-copy');
+  copy.appendChild(el('h1', null, B.greet || 'ยินดีต้อนรับ / Welcome'));
+  if (B.name) copy.appendChild(el('div', 'hero-name', B.name));
+  copy.appendChild(el('div', 'hero-sub', roleDescription(kind)));
+  var role = el('div', 'hero-role');
+  role.appendChild(el('span', 'chip', (B.roleLabel || 'ผู้ใช้งาน') + ' / ' + roleEnglish(kind)));
+  if (B.email) role.appendChild(document.createTextNode('  ' + B.email));
+  copy.appendChild(role);
+  hero.appendChild(copy);
+
+  var actions = el('div', 'hero-actions');
+  var primary = el('a', 'hero-primary');
+  if (kind === 'admin') {
+    primary.textContent = 'ไปยังงานที่ต้องดำเนินการ / View pending work';
+    primary.href = adminFirstTarget();
+  } else {
+    primary.textContent = kind === 'staff' ? 'สร้างรายการใหม่ / New request' : 'เริ่มขอเบิก / Start a request';
+    primary.href = B.base + '?page=index';
+    var secondary = el('a', 'hero-secondary', 'คำขอของฉัน / My requests');
+    secondary.href = B.base + '?page=my';
+    actions.appendChild(secondary);
+  }
+  actions.appendChild(primary);
+  if (kind === 'admin') {
+    var dash = el('a', 'hero-secondary', 'ดูสรุปภาพรวม / Dashboard');
+    dash.href = B.base + '?page=dash';
+    actions.appendChild(dash);
+  }
+  hero.appendChild(actions);
+  app.appendChild(hero);
+}
 function render(){
   var app = $('#app'); app.replaceChildren();
-  var head = el('div');
-  var h1 = el('h1', null, (B.greet || 'สวัสดี') + ' ' + (B.name || ''));
-  head.appendChild(h1);
-  var sub = el('div', 'sub');
-  var chip = el('span', 'chip', B.roleLabel); sub.appendChild(chip);
-  if (B.email) sub.appendChild(document.createTextNode('  ' + B.email));
-  head.appendChild(sub);
-  app.appendChild(head);
+  renderHomeHero(app);
   if (B.notice) app.appendChild(el('div', 'notice', B.notice));
 
   if (B.isAdmin && B.admin) renderAdmin(app, B.admin);
 
-  var mh = el('div', 'mh'); mh.appendChild(el('h2', null, 'เมนูใช้งาน'));
+  var mh = el('div', 'mh'); mh.appendChild(el('h2', null, 'ทางลัด / Quick actions'));
   var box = el('div'); box.style.display = 'none';
   if (B.isAdmin && B.edit) {
     var eb = el('button', 'ghost eb'); eb.innerHTML = svgIcon(PENCIL, 16) + '<span class="long">แก้ไขหน้าแรก</span><span class="short">แก้ไข</span>'; mh.appendChild(eb);
