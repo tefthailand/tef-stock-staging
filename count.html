@@ -328,6 +328,7 @@ body{
       <div class="d-flex flex-wrap gap-2 mt-2">
         <button class="btn btn-tef" id="btnPrint">พิมพ์แบบฟอร์ม</button>
         <button class="btn btn-tef-ghost" id="btnNext">นับรายการต่อไป</button>
+        <button class="btn btn-outline-danger" id="btnUndo" style="display:none">Undo · เปิดให้นับใหม่</button>
       </div>
       <div class="form-text mt-2">
         พิมพ์เก็บเป็นหลักฐานออฟไลน์ ข้อมูลถูกบันทึกลงแท็บ ทะเบียนพัสดุ และแท็บ RECON_LOG เรียบร้อยแล้ว
@@ -347,6 +348,7 @@ body{
 let ITEMS = [];        // รายการทั้งหมดจากชีต
 let CURRENT = null;    // รายการที่เลือกอยู่
 let SUMMARY = null;    // ผลลัพธ์ล่าสุดที่บันทึกสำเร็จ
+let IS_ADMIN = false;
 
 const $ = id => document.getElementById(id);
 
@@ -356,7 +358,21 @@ const $ = id => document.getElementById(id);
 let TOUCHED = false;
 document.addEventListener('input', () => { TOUCHED = true; }, true);
 document.addEventListener('change', () => { TOUCHED = true; }, true);
+function showUndoButton(){
+  const b = $('btnUndo');
+  if (b) b.style.display = IS_ADMIN && SUMMARY && !SUMMARY.undoed ? '' : 'none';
+}
+
+function loadUndoRole(){
+  if (!window.TEFAuth || !TEFAuth.me) return;
+  TEFAuth.me().then(me => {
+    IS_ADMIN = !!(me && String(me.role || '').toUpperCase() === 'ADMIN');
+    showUndoButton();
+  }).catch(() => {});
+}
+
 window.addEventListener('DOMContentLoaded', () => {
+  loadUndoRole();
   if (!(window.TEFAPI && TEFAPI.fresh && TEFAPI.mine)) {
     google.script.run.withSuccessHandler(boot).withFailureHandler(fail).getBootstrapData();
     google.script.run.withSuccessHandler(fillItems).withFailureHandler(fail).countListItems();
@@ -510,12 +526,39 @@ function onSaved(r){
   $('viewForm').style.display = 'none';
   $('viewSummary').style.display = '';
   paintProgress(r.progress);
+  showUndoButton();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ───────── พิมพ์ — Offline Record ─────────
+$('btnUndo').addEventListener('click', () => {
+  if (!IS_ADMIN || !SUMMARY || SUMMARY.undoed) return;
+  const reconId = SUMMARY.reconId;
+  const label = SUMMARY.code + ' — ' + SUMMARY.name;
+  if (!window.confirm('ยืนยัน Undo รายการ ' + reconId + '\n' + label + '\n\nระบบจะไม่ลบประวัติเดิม แต่จะเปิดรายการกลับให้นับใหม่')) return;
+  const b = $('btnUndo');
+  b.disabled = true;
+  b.textContent = 'กำลังเปิดให้นับใหม่…';
+  google.script.run
+    .withSuccessHandler(r => {
+      SUMMARY.undoed = true;
+      $('sStatus').textContent = r.status || 'เปิดให้นับใหม่';
+      $('saveHint').textContent = 'เปิดรายการกลับให้นับใหม่แล้ว · ประวัติเดิมยังอยู่';
+      $('btnPrint').disabled = true;
+      showUndoButton();
+      if (r.progress) paintProgress(r.progress);
+      google.script.run.withSuccessHandler(fillItemsSaved).withFailureHandler(fail).countListItems();
+    })
+    .withFailureHandler(e => {
+      b.disabled = false;
+      b.textContent = 'Undo · เปิดให้นับใหม่';
+      showErr(e && e.message ? e.message : e);
+    })
+    .undoRecon({ reconId: reconId, reason: 'ADMIN เปิดให้นับใหม่จากหน้าสรุป' });
+});
+
 $('btnPrint').addEventListener('click', () => {
-  if (!SUMMARY) return;
+  if (!SUMMARY || SUMMARY.undoed) return;
   $('btnPrint').disabled = true;
   google.script.run
     .withSuccessHandler(html => {
