@@ -127,6 +127,33 @@ body.confirm-modal-open{overflow:hidden}
   .home-hero .hero-actions{justify-content:flex-start;margin-top:16px}
   .home-hero a{flex:1 1 180px}
 }
+
+/* role-aware home layout */
+.home-task-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.home-task{display:flex;align-items:flex-start;gap:12px;min-height:118px;text-decoration:none;color:inherit}
+.home-task:hover{box-shadow:0 8px 20px rgba(10,35,66,.12);transform:translateY(-2px)}
+.home-task .task-ic{width:42px;height:42px;flex:0 0 42px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:#e7eef8;font-size:22px}
+.home-task .task-title{font-weight:800;color:var(--navy);font-size:16px}
+.home-task .task-desc{margin-top:4px;color:var(--mut);font-size:13.5px}
+.home-status{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.home-status .status-card{min-height:92px}
+.home-status .status-title{font-weight:800;color:var(--navy)}
+.home-status .status-copy{margin-top:4px;color:var(--mut);font-size:13.5px}
+.home-status .status-link{display:inline-flex;margin-top:10px;color:var(--blue);font-size:13.5px;font-weight:700;text-decoration:none}
+.home-recent{display:flex;flex-direction:column;gap:0}
+.recent-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.recent-row:last-child{border-bottom:0}
+.recent-thumb{width:48px;height:48px;flex:0 0 48px;object-fit:cover;border-radius:10px;background:#eef2f7;border:1px solid var(--line)}
+.recent-placeholder{width:48px;height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:#eef2f7;color:var(--mut);font-size:20px}
+.recent-main{min-width:0;flex:1}
+.recent-code{font-weight:800;color:var(--navy)}
+.recent-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.home-help-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.home-help a{color:var(--blue);font-weight:700;text-decoration:none}
+.home-help .help-title{font-weight:800;color:var(--navy)}
+.home-help .help-copy{margin-top:4px;color:var(--mut);font-size:13.5px}
+.home-empty-action{margin-top:10px}
+
 </style>
 </head>
 <body>
@@ -283,10 +310,128 @@ function renderHomeHero(app){
   hero.appendChild(actions);
   app.appendChild(hero);
 }
+
+function hasMenuPage(page){
+  return (B && B.menu || []).some(function(x){ return x.page === page; });
+}
+function pageHref(page){
+  return (B && B.base ? B.base : '') + '?page=' + encodeURIComponent(page);
+}
+function homeTask(href, icon, title, desc){
+  var a = el('a', 'card home-task');
+  a.href = href;
+  a.target = '_top';
+  a.appendChild(el('div', 'task-ic', icon));
+  var copy = el('div');
+  copy.appendChild(el('div', 'task-title', title));
+  copy.appendChild(el('div', 'task-desc', desc));
+  a.appendChild(copy);
+  return a;
+}
+function renderMainTasks(app){
+  var kind = roleKind();
+  var tasks = [];
+  if (kind === 'admin') {
+    tasks.push(['#sec-review', '✅', 'ตรวจงานค้าง', 'ดูคำขอที่รอตรวจ อนุมัติ หรือดำเนินการต่อ']);
+    if (hasMenuPage('admin')) tasks.push([pageHref('admin'), '⚙️', 'จัดการระบบ', 'ผู้ใช้ สิทธิ์ และการตั้งค่าที่เกี่ยวข้อง']);
+    if (hasMenuPage('dash')) tasks.push([pageHref('dash'), '📊', 'ดูภาพรวม', 'ตรวจยอดคงเหลือและความเคลื่อนไหว']);
+  } else if (kind === 'staff') {
+    tasks.push([pageHref('index'), '📦', 'ทำรายการใหม่', 'เบิก จ่าย คืน หรือย้ายพัสดุ']);
+    if (hasMenuPage('my')) tasks.push([pageHref('my'), '📋', 'ติดตามคำขอของฉัน', 'ดูสถานะเอกสารและรายการที่เคยส่ง']);
+    if (hasMenuPage('count')) tasks.push([pageHref('count'), '🔢', 'ตรวจนับพัสดุ', 'นับของจริงเทียบกับยอดในระบบ']);
+  } else {
+    tasks.push([pageHref('index'), '📝', 'เริ่มขอเบิก', 'เลือกพัสดุและส่งคำขอให้เจ้าหน้าที่']);
+    if (hasMenuPage('my')) tasks.push([pageHref('my'), '📋', 'ติดตามคำขอ', 'ตรวจสถานะคำขอและแจ้งคืน']);
+    if (hasMenuPage('stock')) tasks.push([pageHref('stock'), '🔎', 'ค้นหาพัสดุ', 'ดูรายการพัสดุที่เปิดให้ค้นหา']);
+  }
+  if (!tasks.length) return;
+  app.appendChild(section('งานหลักของคุณ / Main tasks', null, 'sec-main-tasks'));
+  var g = el('div', 'grid home-task-grid');
+  tasks.forEach(function(t){ g.appendChild(homeTask(t[0], t[1], t[2], t[3])); });
+  app.appendChild(g);
+}
+function renderUserStatus(app){
+  if (B.isAdmin) return;
+  app.appendChild(section('สถานะคำขอ / Request status', null, 'sec-user-status'));
+  var g = el('div', 'grid home-status');
+  var cards = [];
+  if (B.status && Array.isArray(B.status.cards)) cards = B.status.cards;
+  if (!cards.length && B.myRequestsCount != null) {
+    cards.push({title:'คำขอของฉัน', copy:'มี ' + B.myRequestsCount + ' รายการในระบบ', href:hasMenuPage('my') ? pageHref('my') : ''});
+  }
+  if (!cards.length) {
+    cards.push({title:'ติดตามงานของคุณ', copy:'สถานะเอกสารจะแสดงในหน้า “คำขอของฉัน” เมื่อมีรายการที่ส่งเข้าระบบ', href:hasMenuPage('my') ? pageHref('my') : pageHref('index')});
+  }
+  cards.forEach(function(c){
+    var box = el('div', 'card status-card');
+    box.appendChild(el('div', 'status-title', c.title || 'สถานะล่าสุด'));
+    box.appendChild(el('div', 'status-copy', c.copy || c.text || ''));
+    if (c.href) {
+      var a = el('a', 'status-link', 'เปิดดูรายละเอียด / Open details');
+      a.href = c.href; a.target = '_top'; box.appendChild(a);
+    }
+    g.appendChild(box);
+  });
+  app.appendChild(g);
+}
+function renderRecentAndHelp(app){
+  app.appendChild(section('รายการล่าสุดหรือพัสดุที่ใช้บ่อย / Recent items', null, 'sec-recent'));
+  var recent = B.recentItems || B.recent || B.frequentItems || [];
+  if (!Array.isArray(recent) || !recent.length) {
+    var empty = el('div', 'card');
+    empty.appendChild(el('div', 'empty', 'ยังไม่มีรายการล่าสุด · รายการจะแสดงเมื่อเริ่มใช้งาน / No recent items yet.'));
+    if (hasMenuPage('stock')) {
+      var a = el('a', 'btnlike home-empty-action', 'ค้นหารายการพัสดุ / Browse stock');
+      a.href = pageHref('stock'); a.target = '_top'; empty.appendChild(a);
+    }
+    app.appendChild(empty);
+  } else {
+    var box = el('div', 'card home-recent');
+    recent.slice(0, 8).forEach(function(item){
+      item = item || {};
+      var row = el('div', 'recent-row');
+      var image = item.imageUrl || item.thumbUrl || item.image || '';
+      if (image) {
+        var img = el('img', 'recent-thumb');
+        img.src = image; img.alt = item.name || item.title || item.code || 'พัสดุ';
+        img.loading = 'lazy'; img.decoding = 'async'; row.appendChild(img);
+      } else {
+        row.appendChild(el('div', 'recent-placeholder', '📦'));
+      }
+      var main = el('div', 'recent-main');
+      main.appendChild(el('div', 'recent-code', item.code || item.id || ''));
+      main.appendChild(el('div', 'recent-name', item.name || item.title || 'รายการพัสดุ'));
+      if (item.meta || item.updated) main.appendChild(el('div', 'meta', item.meta || item.updated));
+      row.appendChild(main); box.appendChild(row);
+    });
+    app.appendChild(box);
+  }
+
+  app.appendChild(section('วิธีใช้งานและแจ้งปัญหา / Help & support', null, 'sec-help'));
+  var help = el('div', 'grid home-help-grid home-help');
+  var guide = el('div', 'card');
+  guide.appendChild(el('div', 'help-title', 'เริ่มใช้งานอย่างไร / Getting started'));
+  guide.appendChild(el('div', 'help-copy', B.isAdmin ? 'เริ่มจากงานที่รอแอดมินดำเนินการ แล้วตรวจเอกสารก่อนกดยืนยัน' : 'เลือกงานหลักด้านบน หรือใช้เมนูทางลัดเพื่อเริ่มรายการและติดตามสถานะ'));
+  help.appendChild(guide);
+  var support = el('div', 'card');
+  support.appendChild(el('div', 'help-title', 'แจ้งปัญหา / Report an issue'));
+  var email = B.supportEmail || 'phalot.k@tefthailand.com';
+  var mail = el('a', null, email); mail.href = 'mailto:' + email;
+  var copy = el('div', 'help-copy', 'หากพบข้อมูลผิดปกติหรือใช้งานไม่ได้ โปรดแจ้งพร้อมรหัสรายการและภาพหน้าจอ / Include the request ID and screenshot.');
+  support.appendChild(mail); support.appendChild(copy); help.appendChild(support);
+  var rules = el('div', 'card');
+  rules.appendChild(el('div', 'help-title', 'ความปลอดภัย / Safety'));
+  rules.appendChild(el('div', 'help-copy', 'ตรวจสอบรหัสและจำนวนก่อนยืนยันทุกครั้ง ระบบจะแยกสิทธิ์ตามบทบาทของผู้ใช้'));
+  help.appendChild(rules);
+  app.appendChild(help);
+}
+
 function render(){
   var app = $('#app'); app.replaceChildren();
   renderHomeHero(app);
   if (B.notice) app.appendChild(el('div', 'notice', B.notice));
+  renderMainTasks(app);
+  renderUserStatus(app);
 
   if (B.isAdmin && B.admin) renderAdmin(app, B.admin);
 
@@ -306,6 +451,7 @@ function render(){
     g.appendChild(a);
   });
   app.appendChild(g);
+  renderRecentAndHelp(app);
 }
 
 function renderEditor(box){
