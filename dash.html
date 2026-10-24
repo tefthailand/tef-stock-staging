@@ -81,6 +81,9 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 tbody tr:last-child td{border-bottom:0}
 tbody tr:nth-child(even){background:#FBFDFE}
 td.name{white-space:normal;min-width:220px}
+.dash-photo{width:42px;height:36px;object-fit:cover;border-radius:6px;border:1px solid var(--line);background:var(--sky);vertical-align:middle}
+.dash-photo-empty{display:inline-flex;width:42px;height:36px;align-items:center;justify-content:center;border-radius:6px;background:var(--sky);color:var(--ink-soft);font-size:.72rem}
+.photo-cell{text-align:center;width:58px}
 .neg{color:var(--bad);font-weight:600}
 .pos{color:var(--good);font-weight:600}
 .pill{display:inline-block;font-size:.72rem;padding:2px 8px;border-radius:99px;
@@ -161,9 +164,9 @@ footer{max-width:1040px;margin:0 auto;padding:0 18px 40px;font-size:.78rem;color
     <h2>บันทึกการนับล่าสุด</h2>
     <div class="scroll"><table>
       <thead><tr>
-        <th>เวลา</th><th>รหัส</th><th>รายการ</th><th class="n">นับได้</th><th class="n">ส่วนต่าง</th><th>สถานะ</th><th>ผู้นับ</th>
+        <th>เวลา</th><th>รูป</th><th>รหัส</th><th>รายการ</th><th class="n">นับได้</th><th class="n">ส่วนต่าง</th><th>สถานะ</th><th>ผู้นับ</th>
       </tr></thead>
-      <tbody id="tbLog"><tr><td colspan="7" class="empty">กำลังโหลด</td></tr></tbody>
+      <tbody id="tbLog"><tr><td colspan="8" class="empty">กำลังโหลด</td></tr></tbody>
     </table></div>
   </section>
 </main>
@@ -181,6 +184,46 @@ var signed = function (d) {
   if (d === 0) return '<td class="n">0</td>';
   return '<td class="n ' + (d < 0 ? 'neg' : 'pos') + '">' + (d > 0 ? '+' : '') + nf(d) + '</td>';
 };
+var DASH_PHOTO_SEQ = 0;
+function dashPhotoCell(r, index) {
+  if (index >= 12) return '<td class="photo-cell"><span class="dash-photo-empty">—</span></td>';
+  var code = String(r && r.code || '').trim();
+  var name = String(r && r.name || code).trim();
+  if (!code) return '<td class="photo-cell"><span class="dash-photo-empty">—</span></td>';
+  return '<td class="photo-cell"><span class="dash-photo-empty" data-dash-photo-code="' + esc(code) + '" data-dash-photo-name="' + esc(name) + '">โหลด</span></td>';
+}
+function hydrateDashPhotos(rows) {
+  var seq = ++DASH_PHOTO_SEQ;
+  var codes = [];
+  (rows || []).slice(0, 12).forEach(function (r) {
+    var code = String(r && r.code || '').trim();
+    if (code && codes.indexOf(code) < 0) codes.push(code);
+  });
+  if (!codes.length) return;
+  google.script.run.withSuccessHandler(function (photos) {
+    if (seq !== DASH_PHOTO_SEQ) return;
+    document.querySelectorAll('[data-dash-photo-code]').forEach(function (node) {
+      var code = node.getAttribute('data-dash-photo-code');
+      var url = photos && photos[code];
+      if (typeof url === 'string' && url.indexOf('data:image/') === 0) {
+        var img = document.createElement('img');
+        img.className = 'dash-photo';
+        img.src = url;
+        img.alt = (node.getAttribute('data-dash-photo-name') || code) + ' · ' + code;
+        node.replaceWith(img);
+      } else {
+        node.textContent = 'ไม่มีรูป';
+        node.className = 'dash-photo-empty';
+      }
+    });
+  }).withFailureHandler(function () {
+    if (seq !== DASH_PHOTO_SEQ) return;
+    document.querySelectorAll('[data-dash-photo-code]').forEach(function (node) {
+      node.textContent = 'ไม่มีรูป';
+      node.className = 'dash-photo-empty';
+    });
+  }).stockPhotos(codes);
+}
 var fill = function (tb, cols, html) {
   $(tb).innerHTML = html || '<tr><td colspan="' + cols + '" class="empty">ยังไม่มีข้อมูลในกลุ่มนี้</td></tr>';
 };
@@ -224,11 +267,12 @@ function render(d) {
       + signed(i.diff) + '<td>' + esc(i.by) + '</td></tr>';
   }).join(''));
 
-  fill('tbLog', 7, d.recent.map(function (r) {
-    return '<tr><td>' + esc(r.when) + '</td><td>' + esc(r.code) + '</td>'
+  fill('tbLog', 8, d.recent.map(function (r, index) {
+    return '<tr><td>' + esc(r.when) + '</td>' + dashPhotoCell(r, index) + '<td>' + esc(r.code) + '</td>'
       + '<td class="name">' + esc(r.name) + '</td><td class="n">' + nf(r.now) + '</td>'
       + signed(r.diff) + '<td>' + esc(r.status) + '</td><td>' + esc(r.by) + '</td></tr>';
   }).join(''));
+  hydrateDashPhotos(d.recent);
 
   $('rf').disabled = false;
   $('rf').textContent = 'อ่านยอดใหม่';
