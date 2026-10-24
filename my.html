@@ -66,6 +66,19 @@ body{background:var(--tef-bg);color:var(--tef-text);font-family:var(--tef-font);
 .acts .btn-tef{cursor:pointer}
 .acts .ghost{background:#fff;color:#0A2342;border:1px solid #c3cdde}
 .acts .danger{color:#a1121a;border-color:#f3c4c4}
+
+.tef-modal[hidden]{display:none!important}
+.tef-modal{position:fixed;inset:0;z-index:1050;display:grid;place-items:center;padding:18px}
+.tef-modal-backdrop{position:absolute;inset:0;background:rgba(6,26,51,.62);backdrop-filter:blur(2px)}
+.tef-modal-panel{position:relative;width:min(100%,520px);background:#fff;border:1px solid var(--tef-border);border-radius:14px;box-shadow:0 20px 60px rgba(6,26,51,.28);padding:22px}
+.tef-modal-panel h2{font-family:var(--tef-font-head);font-size:20px;margin:0 0 8px;color:var(--tef-navy)}
+.tef-modal-panel h2::before{content:"";display:inline-block;width:4px;height:20px;background:var(--tef-danger);border-radius:2px;margin-right:9px;vertical-align:-2px}
+.tef-modal-panel p{margin:0 0 14px}
+.tef-modal-panel textarea{min-height:105px;resize:vertical}
+.tef-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.tef-modal-actions .btn-tef{cursor:pointer}
+.tef-modal-actions .btn-tef.ghost{background:#fff;color:var(--tef-navy);border:1px solid #c3cdde}
+body.modal-open{overflow:hidden}
 </style>
 </head>
 <body>
@@ -81,6 +94,22 @@ body{background:var(--tef-bg);color:var(--tef-text);font-family:var(--tef-font);
   <div id="list"><p class="hint">กำลังโหลดรายการ…</p></div>
 </div>
 
+
+<div id="cancelModal" class="tef-modal" hidden aria-hidden="true">
+  <div class="tef-modal-backdrop" data-cancel-close></div>
+  <section class="tef-modal-panel" role="dialog" aria-modal="true" aria-labelledby="cancelModalTitle">
+    <h2 id="cancelModalTitle">ยกเลิกคำขอ / Cancel request</h2>
+    <p id="cancelModalText" class="hint"></p>
+    <label class="form-label" for="cancelReason">เหตุผลที่ยกเลิก / Reason for cancellation <span class="req">*</span></label>
+    <textarea id="cancelReason" class="form-control" maxlength="500" placeholder="กรุณาระบุเหตุผล / Please enter a reason"></textarea>
+    <p id="cancelModalHint" class="hint mt-2 mb-0">กรุณาระบุเหตุผลเพื่อดำเนินการต่อ / A reason is required to continue.</p>
+    <div class="tef-modal-actions">
+      <button type="button" class="btn-tef ghost" data-cancel-close>ปิด / Cancel</button>
+      <button type="button" class="btn-tef danger" id="cancelModalSubmit">ยืนยันการยกเลิก / Confirm cancellation</button>
+    </div>
+  </section>
+</div>
+
 <script>
 const $ = i => document.getElementById(i);
 function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -93,6 +122,10 @@ window.addEventListener('DOMContentLoaded', function(){
   $('backBtn').href = (window.TEF_CONFIG && TEF_CONFIG.SITE) || './';   // v35.7: ลิงก์หน้าแรกรู้อยู่แล้ว ไม่ต้องถามหลังบ้าน (appUrl)
   $('list').addEventListener('click', onAct);                     // v34 ปุ่มในแต่ละคำขอ
   $('list').addEventListener('change', onFile);
+
+  $('cancelModalSubmit').addEventListener('click', submitCancel);
+  document.querySelectorAll('[data-cancel-close]').forEach(function(el){ el.addEventListener('click', closeCancelModal); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('cancelModal').hidden) closeCancelModal(); });
   $('list').addEventListener('click', function(){ TOUCHED = true; }, true);
   first();
 });
@@ -146,6 +179,38 @@ function tt(s){ return window.TEF_LANG === 'en' && window.TEF_T ? window.TEF_T(s
 function busy(id, msg){ $('who').textContent = msg + ' ' + id + '…'; }
 function done(msg){ if (window.TEFAPI && TEFAPI.invalidate && TEFAPI.mine) TEFAPI.invalidate(TEFAPI.mine('my')); $('who').textContent = msg; load(); }
 function oops(e){ if (window.TEFAPI && TEFAPI.invalidate && TEFAPI.mine) TEFAPI.invalidate(TEFAPI.mine('my')); $('who').textContent = ''; alert((e && e.message) || String(e)); load(); }
+
+var CANCEL_DIALOG = { id:'', button:null };
+function tx(th, en){ return window.TEF_LANG === 'en' ? en : th; }
+function openCancelModal(id, button){
+  CANCEL_DIALOG = { id:id, button:button };
+  $('cancelModalText').textContent = tx('คุณกำลังจะยกเลิกคำขอ ' + id, 'You are about to cancel request ' + id);
+  $('cancelReason').value = '';
+  $('cancelModalHint').textContent = tx('กรุณาระบุเหตุผลเพื่อดำเนินการต่อ', 'A reason is required to continue.');
+  $('cancelModal').hidden = false;
+  $('cancelModal').setAttribute('aria-hidden','false');
+  document.body.classList.add('modal-open');
+  window.setTimeout(function(){ $('cancelReason').focus(); }, 0);
+}
+function closeCancelModal(){
+  $('cancelModal').hidden = true;
+  $('cancelModal').setAttribute('aria-hidden','true');
+  document.body.classList.remove('modal-open');
+}
+function submitCancel(){
+  var why = ($('cancelReason').value || '').trim();
+  if (!why) {
+    $('cancelModalHint').textContent = tx('กรุณาระบุเหตุผลก่อนยืนยันการยกเลิก', 'Please enter a reason before confirming cancellation.');
+    $('cancelReason').focus();
+    return;
+  }
+  var state = CANCEL_DIALOG;
+  closeCancelModal();
+  if (state.button) state.button.disabled = true;
+  busy(state.id, tx('กำลังยกเลิก', 'Cancelling') );
+  google.script.run.withSuccessHandler(function(){ done(tx('ยกเลิกแล้ว ', 'Cancelled ') + state.id); }).withFailureHandler(oops).cancelRequest(state.id, why);
+}
+
 function onAct(ev){
   var b = ev.target.closest && ev.target.closest('button[data-act]'); if (!b) return;
   var id = b.getAttribute('data-id'), act = b.getAttribute('data-act');
@@ -154,10 +219,7 @@ function onAct(ev){
     b.disabled = true; busy(id, 'กำลังลงนาม');
     google.script.run.withSuccessHandler(function(){ done('ลงนามแล้ว ' + id); }).withFailureHandler(oops).signRequest(id);
   } else if (act === 'cancel') {
-    var why = prompt(tt('เหตุผลที่ยกเลิก') + ' ' + id, '');
-    if (why === null) return;
-    b.disabled = true; busy(id, 'กำลังยกเลิก');
-    google.script.run.withSuccessHandler(function(){ done('ยกเลิกแล้ว ' + id); }).withFailureHandler(oops).cancelRequest(id, why);
+    openCancelModal(id, b);
   }
 }
 function onFile(ev){
