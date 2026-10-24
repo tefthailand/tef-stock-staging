@@ -378,13 +378,14 @@ function renderUserStatus(app){
   app.appendChild(g);
 }
 function renderRecentAndHelp(app){
-  app.appendChild(section('รายการล่าสุดหรือพัสดุที่ใช้บ่อย / Recent items', null, 'sec-recent'));
+  var kind = roleKind();
+  app.appendChild(section(homeTx('รายการล่าสุดหรือพัสดุที่ใช้บ่อย', 'Recent or frequently used items'), null, 'sec-recent'));
   var recent = B.recentItems || B.recent || B.frequentItems || [];
   if (!Array.isArray(recent) || !recent.length) {
     var empty = el('div', 'card');
-    empty.appendChild(el('div', 'empty', 'ยังไม่มีรายการล่าสุด · รายการจะแสดงเมื่อเริ่มใช้งาน / No recent items yet.'));
+    empty.appendChild(el('div', 'empty', homeTx('ยังไม่มีรายการล่าสุด รายการจะแสดงเมื่อเริ่มใช้งาน', 'No recent items yet. Items will appear as you start using the system.')));
     if (hasMenuPage('stock')) {
-      var a = el('a', 'btnlike home-empty-action', 'ค้นหารายการพัสดุ / Browse stock');
+      var a = el('a', 'btnlike home-empty-action', homeTx('ค้นหารายการพัสดุ', 'Browse stock'));
       a.href = pageHref('stock'); a.target = '_top'; empty.appendChild(a);
     }
     app.appendChild(empty);
@@ -396,39 +397,63 @@ function renderRecentAndHelp(app){
       var image = item.imageUrl || item.thumbUrl || item.image || '';
       if (image) {
         var img = el('img', 'recent-thumb');
-        img.src = image; img.alt = item.name || item.title || item.code || 'พัสดุ';
+        img.src = image; img.alt = item.name || item.title || item.code || homeTx('พัสดุ', 'Stock item');
         img.loading = 'lazy'; img.decoding = 'async'; row.appendChild(img);
       } else {
         row.appendChild(el('div', 'recent-placeholder', '📦'));
       }
       var main = el('div', 'recent-main');
       main.appendChild(el('div', 'recent-code', item.code || item.id || ''));
-      main.appendChild(el('div', 'recent-name', item.name || item.title || 'รายการพัสดุ'));
+      main.appendChild(el('div', 'recent-name', item.name || item.title || homeTx('รายการพัสดุ', 'Stock item')));
       if (item.meta || item.updated) main.appendChild(el('div', 'meta', item.meta || item.updated));
       row.appendChild(main); box.appendChild(row);
     });
     app.appendChild(box);
   }
 
-  app.appendChild(section('วิธีใช้งานและแจ้งปัญหา / Help & support', null, 'sec-help'));
+  app.appendChild(section(homeTx('วิธีใช้งานและแจ้งปัญหา', 'Help & support'), null, 'sec-help'));
   var help = el('div', 'grid home-help-grid home-help');
+
   var guide = el('div', 'card');
-  guide.appendChild(el('div', 'help-title', 'เริ่มใช้งานอย่างไร / Getting started'));
-  guide.appendChild(el('div', 'help-copy', B.isAdmin ? 'เริ่มจากงานที่รอแอดมินดำเนินการ แล้วตรวจเอกสารก่อนกดยืนยัน' : 'เลือกงานหลักด้านบน หรือใช้เมนูทางลัดเพื่อเริ่มรายการและติดตามสถานะ'));
+  var guideTitle = kind === 'admin'
+    ? homeTx('วิธีเริ่มงาน', 'Getting started')
+    : kind === 'staff'
+      ? homeTx('เริ่มทำรายการ', 'Start a request')
+      : homeTx('เริ่มต้นใช้งาน', 'Get started');
+  var guideCopy = kind === 'admin'
+    ? homeTx('ตรวจงานที่รอ แล้วตรวจรหัส รูปภาพ และจำนวนก่อนอนุมัติหรือดำเนินการต่อ', 'Review pending work, then check the code, image, and quantity before approving or continuing.')
+    : kind === 'staff'
+      ? homeTx('เลือกงาน ตรวจรายการพร้อมรูปภาพ ส่งคำขอ และติดตามสถานะ', 'Choose a task, check the item with its image, submit the request, and track its status.')
+      : homeTx('ค้นหารายการ ตรวจรูปภาพและจำนวน ส่งคำขอ และติดตามสถานะ', 'Browse items, check the image and quantity, submit a request, and track its status.');
+  guide.appendChild(el('div', 'help-title', guideTitle));
+  guide.appendChild(el('div', 'help-copy', guideCopy));
+  var guideLink = el('a', 'home-help-link', kind === 'admin'
+    ? homeTx('เปิดงานที่ต้องดำเนินการ', 'Open pending work')
+    : homeTx('เริ่มรายการใหม่', 'Start a request'));
+  guideLink.href = kind === 'admin' ? adminFirstTarget() : pageHref('index');
+  guideLink.target = '_top';
+  guide.appendChild(guideLink);
   help.appendChild(guide);
+
   var support = el('div', 'card');
-  support.appendChild(el('div', 'help-title', 'แจ้งปัญหา / Report an issue'));
+  support.appendChild(el('div', 'help-title', homeTx('ติดต่อผู้ดูแล', 'Contact support')));
   var email = B.supportEmail || 'phalot.k@tefthailand.com';
   var mail = el('a', null, email); mail.href = 'mailto:' + email;
-  var copy = el('div', 'help-copy', 'หากพบข้อมูลผิดปกติหรือใช้งานไม่ได้ โปรดแจ้งพร้อมรหัสรายการและภาพหน้าจอ / Include the request ID and screenshot.');
+  var copy = el('div', 'help-copy', homeTx(
+    'หากพบปัญหา โปรดแจ้งรหัสรายการ ภาพหน้าจอ และเวลาที่เกิดปัญหา',
+    'If something goes wrong, include the request ID, a screenshot, and the time of the issue.'
+  ));
   support.appendChild(mail); support.appendChild(copy); help.appendChild(support);
+
   var rules = el('div', 'card');
-  rules.appendChild(el('div', 'help-title', 'ความปลอดภัย / Safety'));
-  rules.appendChild(el('div', 'help-copy', 'ตรวจสอบรหัสและจำนวนก่อนยืนยันทุกครั้ง ระบบจะแยกสิทธิ์ตามบทบาทของผู้ใช้'));
+  rules.appendChild(el('div', 'help-title', homeTx('ตรวจสอบก่อนยืนยัน', 'Before confirming')));
+  rules.appendChild(el('div', 'help-copy', homeTx(
+    'ตรวจสอบรหัส รายการ รูปภาพ จำนวน และปลายทางให้ถูกต้องทุกครั้ง',
+    'Check the code, item, image, quantity, and destination before confirming.'
+  )));
   help.appendChild(rules);
   app.appendChild(help);
 }
-
 function render(){
   var app = $('#app'); app.replaceChildren();
   renderHomeHero(app);
