@@ -304,9 +304,11 @@ body{
   <div id="viewSummary" style="display:none">
     <div class="tef-card">
       <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
-        <h2 class="mb-0">บันทึกเรียบร้อย</h2>
+        <h2 class="mb-0" id="sumTitle">บันทึกเรียบร้อย</h2>
         <span class="summary-badge" id="sumBadge">—</span>
       </div>
+
+      <div id="undoNotice" class="alert alert-success mt-3 mb-3 d-none" role="status" aria-live="polite"></div>
 
       <table class="table table-sm sum-table">
         <tbody>
@@ -330,7 +332,7 @@ body{
         <button class="btn btn-tef-ghost" id="btnNext">นับรายการต่อไป</button>
         <button class="btn btn-outline-danger" id="btnUndo" style="display:none">Undo · เปิดให้นับใหม่</button>
       </div>
-      <div class="form-text mt-2">
+      <div class="form-text mt-2" id="summaryHint">
         พิมพ์เก็บเป็นหลักฐานออฟไลน์ ข้อมูลถูกบันทึกลงแท็บ ทะเบียนพัสดุ และแท็บ RECON_LOG เรียบร้อยแล้ว
       </div>
     </div>
@@ -360,7 +362,14 @@ document.addEventListener('input', () => { TOUCHED = true; }, true);
 document.addEventListener('change', () => { TOUCHED = true; }, true);
 function showUndoButton(){
   const b = $('btnUndo');
-  if (b) b.style.display = IS_ADMIN && SUMMARY && !SUMMARY.undoed ? '' : 'none';
+  if (!b) return;
+  if (!IS_ADMIN || !SUMMARY){
+    b.style.display = 'none';
+    return;
+  }
+  b.style.display = '';
+  b.disabled = !!SUMMARY.undoed;
+  b.textContent = SUMMARY.undoed ? 'ยกเลิกผลนับแล้ว' : 'Undo · เปิดให้นับใหม่';
 }
 
 function loadUndoRole(){
@@ -506,6 +515,10 @@ $('btnSave').addEventListener('click', () => {
 
 function onSaved(r){
   SUMMARY = r;
+  $('sumTitle').textContent = 'บันทึกเรียบร้อย';
+  $('undoNotice').classList.add('d-none');
+  $('summaryHint').textContent = 'พิมพ์เก็บเป็นหลักฐานออฟไลน์ ข้อมูลถูกบันทึกลงแท็บ ทะเบียนพัสดุ และแท็บ RECON_LOG เรียบร้อยแล้ว';
+  $('btnUndo').textContent = 'Undo · เปิดให้นับใหม่';
   $('btnSave').disabled = false;
   $('saveHint').textContent = '';
 
@@ -542,8 +555,14 @@ $('btnUndo').addEventListener('click', () => {
   google.script.run
     .withSuccessHandler(r => {
       SUMMARY.undoed = true;
-      $('sStatus').textContent = r.status || 'เปิดให้นับใหม่';
-      $('saveHint').textContent = 'เปิดรายการกลับให้นับใหม่แล้ว · ประวัติเดิมยังอยู่';
+      $('sumTitle').textContent = 'ยกเลิกผลการตรวจนับเรียบร้อยแล้ว';
+      $('sStatus').textContent = 'ยกเลิกผลนับ · เปิดให้นับใหม่';
+      $('sumBadge').textContent = 'ยกเลิกผลนับ';
+      $('undoNotice').textContent =
+        'รายการ ' + SUMMARY.code + ' — ' + SUMMARY.name +
+        ' ถูกเปิดให้ตรวจนับใหม่แล้ว ประวัติการตรวจนับเดิมยังคงจัดเก็บไว้ในระบบและไม่ได้ถูกลบ';
+      $('undoNotice').classList.remove('d-none');
+      $('summaryHint').textContent = 'ระบบได้บันทึกการยกเลิกผลนับแล้ว สามารถเลือก “นับรายการต่อไป” เพื่อดำเนินการต่อ';
       $('btnPrint').disabled = true;
       showUndoButton();
       if (r.progress) paintProgress(r.progress);
