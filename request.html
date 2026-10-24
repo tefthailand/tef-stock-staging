@@ -113,6 +113,29 @@ body{background:var(--tef-bg);color:var(--tef-text);font-family:var(--tef-font);
 .kind-opt b{display:block}
 .kind-opt small{color:#5b6b80}
 .kind-opt:has(input:checked){border-color:#0A2342;box-shadow:0 0 0 2px rgba(10,35,66,.12)}
+
+.item-photo-panel{
+  display:flex; align-items:center; gap:12px; margin-top:12px; padding:10px 12px;
+  border:1px solid var(--tef-border); border-radius:10px; background:var(--tef-ocean-light);
+}
+.item-photo-panel img,.line-photo{
+  display:block; width:72px; height:56px; object-fit:contain; flex:none;
+  border:1px solid var(--tef-border); border-radius:7px; background:#fff;
+}
+.item-photo-panel.is-empty img{ display:none; }
+.item-photo-panel .photo-copy{ min-width:0; }
+.item-photo-panel .photo-copy b,.item-photo-panel .photo-copy small{ display:block; }
+.item-photo-panel .photo-copy b{ font-weight:600; }
+.item-photo-panel .photo-copy small{ color:var(--tef-text-soft); font-size:12px; margin-top:2px; }
+.line-photo{ width:52px; height:44px; margin:auto; }
+.line-photo.is-empty{
+  display:flex; align-items:center; justify-content:center; color:var(--tef-text-soft);
+  font-size:11px; text-align:center; padding:4px;
+}
+.lines th.photo-col,.lines td.photo-col{ width:68px; text-align:center; }
+@media (max-width:575.98px){
+  .item-photo-panel img{ width:64px; height:52px; }
+}
 </style>
 </head>
 <body>
@@ -159,13 +182,22 @@ body{background:var(--tef-bg);color:var(--tef-text);font-family:var(--tef-font);
         <button class="btn btn-tef-ghost" onclick="addLine()">เพิ่มเข้ารายการ</button>
         <span class="hint ms-2" id="pName"></span>
       </div>
+      <div class="col-12">
+        <div class="item-photo-panel is-empty" id="pPhoto" aria-live="polite">
+          <img id="pPhotoImg" alt="" style="display:none">
+          <div class="photo-copy">
+            <b id="pPhotoName">ยังไม่ได้เลือกรายการ</b>
+            <small id="pPhotoText">เลือกรหัสหรือชื่อรายการเพื่อดูรูปประกอบ</small>
+          </div>
+        </div>
+      </div>
       <div class="col-12" id="unitBox" style="display:none"></div>
     </div>
 
     <div class="lines">
       <table>
         <thead><tr>
-          <th>รหัส</th><th>รายการ</th><th style="text-align:right">จำนวน</th>
+          <th class="photo-col">รูป</th><th>รหัส</th><th>รายการ</th><th style="text-align:right">จำนวน</th>
           <th id="thCost" style="text-align:right;display:none">มูลค่า</th><th></th>
         </tr></thead>
         <tbody id="lineBody"></tbody>
@@ -302,6 +334,15 @@ body{background:var(--tef-bg);color:var(--tef-text);font-family:var(--tef-font);
       <div class="col-12 col-md-6">
         <label class="form-label" for="mTo">ไป สถานที่ <span class="req">*</span></label>
         <input class="form-control" id="mTo" list="placeList" placeholder="ปลายทาง">
+      </div>
+      <div class="col-12">
+        <div class="item-photo-panel is-empty" id="mPhoto" aria-live="polite">
+          <img id="mPhotoImg" alt="" style="display:none">
+          <div class="photo-copy">
+            <b id="mPhotoName">ยังไม่ได้เลือกรายการ</b>
+            <small id="mPhotoText">กรอกรหัสรายการเพื่อดูรูปประกอบ</small>
+          </div>
+        </div>
       </div>
       <div class="col-6 col-md-4">
         <label class="form-label" for="mDate">วันที่ย้าย</label>
@@ -789,6 +830,86 @@ function esc(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+const PHOTO_CACHE = Object.create(null);
+const PHOTO_PENDING = Object.create(null);
+
+function requestPhoto(code, done){
+  const key = String(code || '').trim();
+  if (!key) return done('');
+  if (Object.prototype.hasOwnProperty.call(PHOTO_CACHE, key)) return done(PHOTO_CACHE[key]);
+  if (PHOTO_PENDING[key]) { PHOTO_PENDING[key].push(done); return; }
+  PHOTO_PENDING[key] = [done];
+  google.script.run
+    .withSuccessHandler(arr => {
+      const url = Array.isArray(arr) && typeof arr[0] === 'string' && arr[0].indexOf('data:image/') === 0 ? arr[0] : '';
+      if (url) PHOTO_CACHE[key] = url;
+      const waiters = PHOTO_PENDING[key] || [];
+      delete PHOTO_PENDING[key];
+      waiters.forEach(fn => fn(url));
+    })
+    .withFailureHandler(() => {
+      const waiters = PHOTO_PENDING[key] || [];
+      delete PHOTO_PENDING[key];
+      waiters.forEach(fn => fn(''));
+    })
+    .stockPhotoSet(key);
+}
+
+function photoMarkup(code, name){
+  const key = String(code || '').trim();
+  const cached = PHOTO_CACHE[key];
+  if (cached) return '<img class="line-photo" src="' + cached + '" alt="' + esc((name || key) + ' · ' + key) + '">';
+  return '<span class="line-photo is-empty" data-photo-code="' + esc(key) + '" data-photo-name="' + esc(name || key) + '">กำลังโหลดรูป</span>';
+}
+
+function hydratePhotos(root){
+  (root || document).querySelectorAll('[data-photo-code]').forEach(node => {
+    const code = node.getAttribute('data-photo-code');
+    const name = node.getAttribute('data-photo-name') || code;
+    requestPhoto(code, url => {
+      if (!node.isConnected) return;
+      if (url) {
+        const img = document.createElement('img');
+        img.className = 'line-photo';
+        img.src = url;
+        img.alt = (name || code) + ' · ' + code;
+        node.replaceWith(img);
+      } else {
+        node.textContent = 'ไม่มีรูป';
+        node.removeAttribute('data-photo-code');
+        node.removeAttribute('data-photo-name');
+      }
+    });
+  });
+}
+
+function clearPhotoPanel(panelId, imgId, textId, nameId, title, hint){
+  const panel = $(panelId), img = $(imgId), txt = $(textId), name = $(nameId);
+  if (!panel || !img || !txt || !name) return;
+  img.removeAttribute('src'); img.style.display = 'none'; img.alt = '';
+  panel.classList.add('is-empty');
+  name.textContent = title || 'ยังไม่ได้เลือกรายการ';
+  txt.textContent = hint || 'เลือกรหัสรายการเพื่อดูรูปประกอบ';
+}
+
+function showPhotoPanel(panelId, imgId, textId, nameId, code, itemName){
+  const panel = $(panelId), img = $(imgId), txt = $(textId), name = $(nameId);
+  if (!panel || !img || !txt || !name) return;
+  panel.classList.remove('is-empty');
+  name.textContent = itemName ? itemName + ' · ' + code : code;
+  txt.textContent = 'กำลังโหลดรูป…';
+  img.style.display = 'none';
+  img.alt = (itemName || code) + ' · ' + code;
+  requestPhoto(code, url => {
+    if (url) {
+      img.src = url; img.style.display = 'block'; txt.textContent = 'รูปภาพประกอบรายการ';
+    } else {
+      panel.classList.add('is-empty');
+      txt.textContent = 'ยังไม่มีรูปของรายการนี้';
+    }
+  });
+}
+
 function setMode(m){  if (m === 'dis' && (!BOOT || !BOOT.me || String(BOOT.me.role || '').toUpperCase() !== 'ADMIN')) m = 'req';
   setTimeout(() => { if (typeof drawUnits === 'function') drawUnits(); }, 0);
   MODE = m;
@@ -813,12 +934,18 @@ function syncMov(){
   $('mBackWrap').style.display = tmp ? '' : 'none';
 }
 
-$('pCode').addEventListener('change', () => {
-  const it = ITEMS.find(i => i.code === $('pCode').value.trim());
+$('pCode').addEventListener('change', syncPickerItem);
+
+function syncPickerItem(){
+  const raw = $('pCode').value.trim();
+  const it = ITEMS.find(i => i.code.toLowerCase() === raw.toLowerCase() ||
+    String(i.name || '').toLowerCase() === raw.toLowerCase());
   $('pBal').value = it ? it.balance : '';
   $('pName').textContent = it ? it.name : '';
+  if (it) showPhotoPanel('pPhoto', 'pPhotoImg', 'pPhotoText', 'pPhotoName', it.code, it.name);
+  else clearPhotoPanel('pPhoto', 'pPhotoImg', 'pPhotoText', 'pPhotoName', 'ยังไม่ได้เลือกรายการ', 'เลือกรหัสหรือชื่อรายการเพื่อดูรูปประกอบ');
   SEL = []; drawUnits();
-});
+}
 
 function addLine(){
   const code = $('pCode').value.trim();
@@ -836,21 +963,23 @@ function addLine(){
                balance: it.balance, units: rad ? SEL.slice().sort() : null });
   SEL = []; drawUnits();
   $('pCode').value = ''; $('pBal').value = ''; $('pQty').value = 1; $('pCost').value = ''; $('pName').textContent = '';
+  clearPhotoPanel('pPhoto', 'pPhotoImg', 'pPhotoText', 'pPhotoName');
   hideOut(); renderLines();
 }
 
 function renderLines(){
   const b = $('lineBody');
   if (!LINES.length){
-    b.innerHTML = '<tr><td colspan="5" class="empty">ยังไม่มีรายการ</td></tr>';
+    b.innerHTML = '<tr><td colspan="' + (MODE === 'dis' ? 6 : 5) + '" class="empty">ยังไม่มีรายการ</td></tr>';
     return;
   }
   b.innerHTML = LINES.map((l, i) =>
-    '<tr><td>' + esc(l.code) + '</td><td>' + esc(l.name) + (l.units && l.units.length ? '<div class="hint">เครื่อง ' + esc(l.units.join(', ')) + '</div>' : '') + '</td>' +
+    '<tr><td class="photo-col">' + photoMarkup(l.code, l.name) + '</td><td>' + esc(l.code) + '</td><td>' + esc(l.name) + (l.units && l.units.length ? '<div class="hint">เครื่อง ' + esc(l.units.join(', ')) + '</div>' : '') + '</td>' +
     '<td class="num">' + l.qty + ' <span class="chip' + (l.qty === l.balance ? ' low' : '') + '">คงเหลือ ' + l.balance + '</span></td>' +
     (MODE === 'dis' ? '<td class="num">' + (l.qty * l.cost).toLocaleString('th-TH', {minimumFractionDigits:2}) + '</td>' : '') +
     '<td><button class="del" type="button" onclick="rmLine(' + i + ')" aria-label="ลบ">✕</button></td></tr>'
   ).join('');
+  hydratePhotos(b);
 }
 
 function rmLine(i){ LINES.splice(i, 1); renderLines(); drawUnits(); }
@@ -1013,6 +1142,7 @@ function renderReq(d){
 
   const rows = open.map((l, i) =>
     '<tr>' +
+      '<td class="photo-col">' + photoMarkup(l.code, l.name) + '</td>' +
       '<td>' + esc(l.code) + '<div class="hint">' + esc(l.name) + '</div></td>' +
       '<td class="num">' + l.qtyOut +
         (l.qtyOut !== l.remaining ? '<div class="hint">ค้างคืน ' + l.remaining + '</div>' : '') + '</td>' +
@@ -1030,7 +1160,7 @@ function renderReq(d){
   $('retBox').innerHTML = head +
     '<div class="lines">' +
       '<table><thead><tr>' +
-        '<th>รหัส / รายการ</th>' +
+        '<th class="photo-col">รูป</th><th>รหัส / รายการ</th>' +
         '<th style="text-align:right">เบิกไป</th>' +
         '<th style="width:110px">คืน <span class="req">*</span></th>' +
         '<th style="width:110px">ชำรุด</th>' +
@@ -1046,6 +1176,7 @@ function renderReq(d){
     '</div>' +
     '<button class="btn btn-tef mt-3" onclick="submitRet()">บันทึกการคืน</button>';
 
+  hydratePhotos($('retBox'));
   open.forEach((l, i) => {
     if (l.units && l.units.length) { $('rb' + i).readOnly = true; $('rd' + i).readOnly = true; }
     calcLost(i);
@@ -1111,6 +1242,17 @@ function submitRet(){
       showErr(e.message);
     })
     .returnItems({ reqId: REQ.id, lines: lines, tok: TOK });
+}
+
+$('mCode').addEventListener('input', syncMoveItem);
+$('mCode').addEventListener('change', syncMoveItem);
+
+function syncMoveItem(){
+  const raw = $('mCode').value.trim();
+  const it = ITEMS.find(i => i.code.toLowerCase() === raw.toLowerCase() ||
+    String(i.name || '').toLowerCase() === raw.toLowerCase());
+  if (it) showPhotoPanel('mPhoto', 'mPhotoImg', 'mPhotoText', 'mPhotoName', it.code, it.name);
+  else clearPhotoPanel('mPhoto', 'mPhotoImg', 'mPhotoText', 'mPhotoName', 'ยังไม่ได้เลือกรายการ', 'กรอกรหัสรายการเพื่อดูรูปประกอบ');
 }
 
 function submitMov(){

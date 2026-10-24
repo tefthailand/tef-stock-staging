@@ -150,6 +150,16 @@ body{
 .item-info dt{ color: var(--tef-text-soft); font-weight: 500; font-size: 11.5px; }
 .item-info dd{ margin: 0 0 6px; font-weight: 500; }
 
+/* พรีวิวรูปของรายการที่เลือก — ผูกกับรหัสรายการ ไม่ผูกกับลำดับแถว */
+.item-preview{
+  min-height: 220px; border: 1px solid var(--tef-border); border-radius: 10px;
+  background: #fff; display:flex; align-items:center; justify-content:center;
+  overflow:hidden; color: var(--tef-text-soft); text-align:center; padding: 12px;
+}
+.item-preview img{ display:block; width:100%; height:220px; object-fit:contain; background:#fff; }
+.item-preview.is-empty{ background: rgba(255,255,255,.55); font-size: 13px; }
+@media (max-width: 575.98px){ .item-preview, .item-preview img{ min-height:180px; height:180px; } }
+
 /* หน้าสรุปหลังบันทึก */
 .summary-badge{
   display:inline-block; background: rgba(26,127,90,.12); color: var(--tef-good);
@@ -224,12 +234,22 @@ body{
       </div>
 
       <div class="item-info mt-3" id="itemInfo" style="display:none">
-        <div class="row g-2">
-          <div class="col-6 col-md-3"><dt>รหัส</dt><dd id="iiCode">-</dd></div>
-          <div class="col-6 col-md-3"><dt>หมวดหลัก</dt><dd id="iiCat">-</dd></div>
-          <div class="col-6 col-md-3"><dt>ไซส์ / รายละเอียด</dt><dd id="iiSize">-</dd></div>
-          <div class="col-6 col-md-3"><dt>สถานะภาพถ่าย</dt><dd id="iiPhoto">-</dd></div>
-          <div class="col-12"><dt>ชื่อรายการ</dt><dd id="iiName">-</dd></div>
+        <div class="row g-3 align-items-start">
+          <div class="col-12 col-md-4">
+            <div class="item-preview is-empty" id="itemPreview" aria-live="polite">
+              <span id="itemPreviewText">กำลังโหลดรูป…</span>
+              <img id="itemPreviewImg" alt="" style="display:none">
+            </div>
+          </div>
+          <div class="col-12 col-md-8">
+            <div class="row g-2">
+              <div class="col-6 col-md-6"><dt>รหัส</dt><dd id="iiCode">-</dd></div>
+              <div class="col-6 col-md-6"><dt>หมวดหลัก</dt><dd id="iiCat">-</dd></div>
+              <div class="col-6 col-md-6"><dt>ไซส์ / รายละเอียด</dt><dd id="iiSize">-</dd></div>
+              <div class="col-6 col-md-6"><dt>สถานะภาพถ่าย</dt><dd id="iiPhoto">-</dd></div>
+              <div class="col-12"><dt>ชื่อรายการ</dt><dd id="iiName">-</dd></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -454,6 +474,7 @@ function showItem(it){
   $('iiSize').textContent   = it.size || '-';
   $('iiPhoto').textContent  = it.photo || '-';
   $('itemInfo').style.display = '';
+  loadItemPreview(it.code, it.name);
 
   $('qtyOld').value = it.qtyOld;
   $('qtyNew').value = it.qtyNew === null ? '' : it.qtyNew;
@@ -464,6 +485,39 @@ function showItem(it){
   $('countCard').style.display = '';
   calcDiff();
   $('qtyNew').focus();
+}
+
+function clearItemPreview(message){
+  const box = $('itemPreview'), img = $('itemPreviewImg'), text = $('itemPreviewText');
+  if (!box || !img || !text) return;
+  img.removeAttribute('src');
+  img.alt = '';
+  img.style.display = 'none';
+  text.textContent = message || 'ยังไม่มีรูปของรายการนี้';
+  text.style.display = '';
+  box.classList.add('is-empty');
+}
+
+function loadItemPreview(code, name){
+  const requested = String(code || '').trim();
+  clearItemPreview('กำลังโหลดรูป…');
+  if (!requested) return;
+  google.script.run.withSuccessHandler(function (arr) {
+    if (!CURRENT || CURRENT.code !== requested) return;
+    const url = Array.isArray(arr) && typeof arr[0] === 'string' ? arr[0] : '';
+    if (url.indexOf('data:image/') !== 0) {
+      clearItemPreview('ยังไม่มีรูปของรายการนี้');
+      return;
+    }
+    const box = $('itemPreview'), img = $('itemPreviewImg'), text = $('itemPreviewText');
+    img.src = url;
+    img.alt = (name || requested) + ' · ' + requested;
+    img.style.display = 'block';
+    text.style.display = 'none';
+    box.classList.remove('is-empty');
+  }).withFailureHandler(function () {
+    if (CURRENT && CURRENT.code === requested) clearItemPreview('โหลดรูปไม่สำเร็จ ลองเลือกใหม่อีกครั้ง');
+  }).stockPhotoSet(requested);
 }
 
 // ───────── คำนวณส่วนต่างสดๆ ─────────
