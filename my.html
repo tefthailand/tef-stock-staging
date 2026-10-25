@@ -79,6 +79,13 @@ body{background:var(--tef-bg);color:var(--tef-text);font-family:var(--tef-font);
 .tef-modal-actions .btn-tef{cursor:pointer}
 .tef-modal-actions .btn-tef.ghost{background:#fff;color:var(--tef-navy);border:1px solid #c3cdde}
 body.modal-open{overflow:hidden}
+.flt-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.flt-bar[hidden]{display:none!important}
+.flt-btn{border:1px solid var(--tef-border);background:#fff;color:var(--tef-text-soft);border-radius:999px;padding:6px 13px;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s}
+.flt-btn:hover{border-color:var(--tef-ocean);color:var(--tef-navy)}
+.flt-btn.on{background:var(--tef-navy);border-color:var(--tef-navy);color:#fff}
+.flt-btn .cnt{font-size:11.5px;padding:1px 7px;border-radius:999px;background:var(--tef-ocean-light);color:var(--tef-ocean-text);font-variant-numeric:tabular-nums}
+.flt-btn.on .cnt{background:rgba(255,255,255,.2);color:#fff}
 </style>
 </head>
 <body>
@@ -91,6 +98,7 @@ body.modal-open{overflow:hidden}
 
 <div class="tef-wrap">
   <div class="mb-3"><a class="btn-tef" id="backBtn" target="_top" href="#">กลับหน้าเบิก / แจ้งคืน</a></div>
+  <div id="filterBar" class="flt-bar" hidden></div>
   <div id="list"><p class="hint">กำลังโหลดรายการ…</p></div>
 </div>
 
@@ -98,14 +106,14 @@ body.modal-open{overflow:hidden}
 <div id="cancelModal" class="tef-modal" hidden aria-hidden="true">
   <div class="tef-modal-backdrop" data-cancel-close></div>
   <section class="tef-modal-panel" role="dialog" aria-modal="true" aria-labelledby="cancelModalTitle">
-    <h2 id="cancelModalTitle">ยกเลิกคำขอ / Cancel request</h2>
+    <h2 id="cancelModalTitle">ยกเลิกคำขอ</h2>
     <p id="cancelModalText" class="hint"></p>
-    <label class="form-label" for="cancelReason">เหตุผลที่ยกเลิก / Reason for cancellation <span class="req">*</span></label>
-    <textarea id="cancelReason" class="form-control" maxlength="500" placeholder="กรุณาระบุเหตุผล / Please enter a reason"></textarea>
-    <p id="cancelModalHint" class="hint mt-2 mb-0">กรุณาระบุเหตุผลเพื่อดำเนินการต่อ / A reason is required to continue.</p>
+    <label class="form-label" for="cancelReason">เหตุผลที่ยกเลิก <span class="req">*</span></label>
+    <textarea id="cancelReason" class="form-control" maxlength="500" placeholder="กรุณาระบุเหตุผล"></textarea>
+    <p id="cancelModalHint" class="hint mt-2 mb-0">กรุณาระบุเหตุผลเพื่อดำเนินการต่อ</p>
     <div class="tef-modal-actions">
-      <button type="button" class="btn-tef ghost" data-cancel-close>ปิด / Cancel</button>
-      <button type="button" class="btn-tef danger" id="cancelModalSubmit">ยืนยันการยกเลิก / Confirm cancellation</button>
+      <button type="button" class="btn-tef ghost" data-cancel-close>ปิด</button>
+      <button type="button" class="btn-tef danger" id="cancelModalSubmit">ยืนยันการยกเลิก</button>
     </div>
   </section>
 </div>
@@ -118,10 +126,18 @@ var CHIP = { 'รออนุมัติ':'warn', 'อนุมัติแล�
 var CONSENT = 'ข้าพเจ้ายืนยันรายการในเอกสารนี้ และตกลงลงนามด้วยวิธีอิเล็กทรอนิกส์ (พ.ร.บ.ธุรกรรมทางอิเล็กทรอนิกส์ พ.ศ. 2544)';
 
 var TOUCHED = false;
+var ALL_ROWS = [];
+var CUR_FILTER = 'all';
 window.addEventListener('DOMContentLoaded', function(){
   $('backBtn').href = (window.TEF_CONFIG && TEF_CONFIG.SITE) || './';   // v35.7: ลิงก์หน้าแรกรู้อยู่แล้ว ไม่ต้องถามหลังบ้าน (appUrl)
   $('list').addEventListener('click', onAct);                     // v34 ปุ่มในแต่ละคำขอ
   $('list').addEventListener('change', onFile);
+  $('filterBar').addEventListener('click', function(ev){
+    var b = ev.target.closest && ev.target.closest('button[data-flt]'); if (!b) return;
+    CUR_FILTER = b.getAttribute('data-flt') || 'all';
+    TOUCHED = true;
+    drawList();
+  });
 
   $('cancelModalSubmit').addEventListener('click', submitCancel);
   document.querySelectorAll('[data-cancel-close]').forEach(function(el){ el.addEventListener('click', closeCancelModal); });
@@ -236,13 +252,46 @@ function onFile(ev){
   rd.readAsDataURL(f);
 }
 
+function isDoneRow(r){
+  return r && (r.status === 'คืนครบ' || r.status === 'จ่ายออกแล้ว' || r.status === 'ไม่อนุมัติ' || r.status === 'ยกเลิก');
+}
 function render(rows){
   $('who').textContent = '';
-  if (!rows || !rows.length){
+  ALL_ROWS = rows || [];
+  if (!ALL_ROWS.length){
+    $('filterBar').hidden = true;
     $('list').innerHTML = '<div class="tef-card"><p class="mb-0">ยังไม่มีคำขอ</p></div>';
     return;
   }
-  $('list').innerHTML = rows.map(function(r){
+  drawList();
+}
+function drawList(){
+  var activeCnt = 0, doneCnt = 0;
+  ALL_ROWS.forEach(function(r){ if (isDoneRow(r)) doneCnt++; else activeCnt++; });
+  if (ALL_ROWS.length > 1) {
+    var tabs = [
+      { k:'all', label:'ทั้งหมด', c:ALL_ROWS.length },
+      { k:'active', label:'กำลังดำเนินการ / ค้างคืน', c:activeCnt },
+      { k:'done', label:'เสร็จสิ้น / ปิดแล้ว', c:doneCnt }
+    ];
+    $('filterBar').hidden = false;
+    $('filterBar').innerHTML = tabs.map(function(t){
+      return '<button type="button" class="flt-btn ' + (CUR_FILTER === t.k ? 'on' : '') + '" data-flt="' + t.k + '">' +
+        '<span>' + t.label + '</span><span class="cnt">' + t.c + '</span></button>';
+    }).join('');
+  } else {
+    $('filterBar').hidden = true;
+  }
+  var shown = ALL_ROWS.filter(function(r){
+    if (CUR_FILTER === 'active') return !isDoneRow(r);
+    if (CUR_FILTER === 'done') return isDoneRow(r);
+    return true;
+  });
+  if (!shown.length){
+    $('list').innerHTML = '<div class="tef-card"><p class="mb-0 hint">ไม่มีคำขอในหมวดนี้</p></div>';
+    return;
+  }
+  $('list').innerHTML = shown.map(function(r){
     var lines = (r.lines || []).map(function(l){
       return '<tr><td>' + esc(l.code) + '</td><td>' + esc(l.name) + '</td><td class="num">' + l.qty + '</td><td class="num">' + l.back + '</td><td class="num">' + l.remaining + '</td></tr>';
     }).join('');

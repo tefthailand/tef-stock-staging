@@ -234,8 +234,9 @@ function twoStep(btn, confirmText, run){
   var orig = btn.textContent;
   btn.addEventListener('click', function(){
     if (btn.disabled) return;
-    openConfirmModal(confirmText + ' / Please confirm this action.', function(){
-      btn.disabled = true; btn.textContent = 'กำลังดำเนินการ…'; run(btn, orig);
+    var msg = window.TEF_LANG === 'en' && window.TEF_T ? window.TEF_T(confirmText) : confirmText;
+    openConfirmModal(msg, function(){
+      btn.disabled = true; btn.textContent = homeTx('กำลังดำเนินการ…', 'Processing…'); run(btn, orig);
     });
   });
 }
@@ -287,7 +288,10 @@ function renderHomeHero(app){
   if (displayName) copy.appendChild(el('div', 'hero-name', displayName));
   copy.appendChild(el('div', 'hero-sub', roleDescription(kind)));
   var role = el('div', 'hero-role');
-  role.appendChild(el('span', 'chip', (B.roleLabel || homeTx('ผู้ใช้งาน', 'User')) + ' / ' + roleEnglish(kind)));
+  var roleText = window.TEF_LANG === 'en'
+    ? (window.TEF_T && B.roleLabel ? window.TEF_T(B.roleLabel) : roleEnglish(kind))
+    : (B.roleLabel || 'ผู้ใช้งาน');
+  role.appendChild(el('span', 'chip', roleText));
   if (B.email) role.appendChild(document.createTextNode('  ' + B.email));
   copy.appendChild(role);
   hero.appendChild(copy);
@@ -348,29 +352,29 @@ function renderMainTasks(app){
     if (hasMenuPage('stock')) tasks.push([pageHref('stock'), '🔎', homeTx('ค้นหาพัสดุ', 'Browse inventory'), homeTx('ดูรายการพัสดุที่เปิดให้ค้นหา', 'Browse items available to search')]);
   }
   if (!tasks.length) return;
-  app.appendChild(section('งานหลักของคุณ / Main tasks', null, 'sec-main-tasks'));
+  app.appendChild(section(homeTx('งานหลักของคุณ', 'Main tasks'), null, 'sec-main-tasks'));
   var g = el('div', 'grid home-task-grid');
   tasks.forEach(function(t){ g.appendChild(homeTask(t[0], t[1], t[2], t[3])); });
   app.appendChild(g);
 }
 function renderUserStatus(app){
   if (B.isAdmin) return;
-  app.appendChild(section('สถานะคำขอ / Request status', null, 'sec-user-status'));
+  app.appendChild(section(homeTx('สถานะคำขอ', 'Request status'), null, 'sec-user-status'));
   var g = el('div', 'grid home-status');
   var cards = [];
   if (B.status && Array.isArray(B.status.cards)) cards = B.status.cards;
   if (!cards.length && B.myRequestsCount != null) {
-    cards.push({title:'คำขอของฉัน', copy:'มี ' + B.myRequestsCount + ' รายการในระบบ', href:hasMenuPage('my') ? pageHref('my') : ''});
+    cards.push({title:homeTx('คำขอของฉัน', 'My Requests'), copy:homeTx('มี ' + B.myRequestsCount + ' รายการในระบบ', B.myRequestsCount + ' request(s) in the system'), href:hasMenuPage('my') ? pageHref('my') : ''});
   }
   if (!cards.length) {
-    cards.push({title:'ติดตามงานของคุณ', copy:'สถานะเอกสารจะแสดงในหน้า “คำขอของฉัน” เมื่อมีรายการที่ส่งเข้าระบบ', href:hasMenuPage('my') ? pageHref('my') : pageHref('index')});
+    cards.push({title:homeTx('ติดตามงานของคุณ', 'Track your requests'), copy:homeTx('สถานะเอกสารจะแสดงในหน้า “คำขอของฉัน” เมื่อมีรายการที่ส่งเข้าระบบ', 'Document status will appear in “My Requests” once you submit a request.'), href:hasMenuPage('my') ? pageHref('my') : pageHref('index')});
   }
   cards.forEach(function(c){
     var box = el('div', 'card status-card');
-    box.appendChild(el('div', 'status-title', c.title || 'สถานะล่าสุด'));
+    box.appendChild(el('div', 'status-title', c.title || homeTx('สถานะล่าสุด', 'Latest status')));
     box.appendChild(el('div', 'status-copy', c.copy || c.text || ''));
     if (c.href) {
-      var a = el('a', 'status-link', 'เปิดดูรายละเอียด / Open details');
+      var a = el('a', 'status-link', homeTx('เปิดดูรายละเอียด', 'Open details'));
       a.href = c.href; a.target = '_top'; box.appendChild(a);
     }
     g.appendChild(box);
@@ -463,7 +467,7 @@ function render(){
 
   if (B.isAdmin && B.admin) renderAdmin(app, B.admin);
 
-  var mh = el('div', 'mh'); mh.appendChild(el('h2', null, 'ทางลัด / Quick actions'));
+  var mh = el('div', 'mh'); mh.appendChild(el('h2', null, homeTx('ทางลัด', 'Quick actions')));
   var box = el('div'); box.style.display = 'none';
   if (B.isAdmin && B.edit) {
     var eb = el('button', 'ghost eb'); eb.innerHTML = svgIcon(PENCIL, 16) + '<span class="long">แก้ไขหน้าแรก</span><span class="short">แก้ไข</span>'; mh.appendChild(eb);
@@ -716,11 +720,11 @@ firstLoad();
 <div id="confirmModal" class="confirm-modal" hidden aria-hidden="true">
   <div class="confirm-modal-backdrop" data-confirm-close></div>
   <section class="confirm-modal-panel" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">
-    <h2 id="confirmModalTitle">ยืนยันการดำเนินการ / Confirm action</h2>
+    <h2 id="confirmModalTitle">ยืนยันการดำเนินการ</h2>
     <p id="confirmModalText"></p>
     <div class="confirm-modal-actions">
-      <button type="button" class="btn ghost" data-confirm-close>ปิด / Cancel</button>
-      <button type="button" class="btn" id="confirmModalSubmit">ยืนยัน / Confirm</button>
+      <button type="button" class="btn ghost" data-confirm-close>ยกเลิก</button>
+      <button type="button" class="btn" id="confirmModalSubmit">ยืนยัน</button>
     </div>
   </section>
 </div>
