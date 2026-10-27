@@ -107,7 +107,7 @@ var D = {
 'รายการเก่า ไม่มีข้อมูลละเอียด': 'Legacy entry, no details', 'กดอีกครั้งเพื่อลงบัญชีรับคืน': 'Click again to record the return', 'รับคืนแล้ว': 'Return received',
 'กรุณาระบุเหตุผล': 'Please provide a reason', 'บันทึกไม่รับคืนแล้ว': 'Return rejected', 'ไม่มีเอกสารเกินกำหนด': 'No overdue documents',
 'ยังไม่มีผู้กรอกแบบสอบถาม': 'No survey responses yet', 'ชื่อ': 'Name', 'หน่วยงาน / สโมสร': 'Organisation / Club', 'เบอร์โทร': 'Phone', 'ต้องการ': 'Needs',
-'วัตถุประสงค์': 'Purpose', 'ใช้งานได้': 'Active', 'ปิดสิทธิ์': 'Disable access', 'เปิดสิทธิ์': 'Enable access', 'ยืนยัน': 'Confirm',
+'วัตถุประสงค์': 'Purpose', 'ขอเบิก': 'Borrow', 'รอรับ (จ่าย)': 'Awaiting issue', 'คืน': 'Return', 'ใช้งานได้': 'Active', 'ปิดสิทธิ์': 'Disable access', 'เปิดสิทธิ์': 'Enable access', 'ยืนยัน': 'Confirm',
 'ปิดสิทธิ์แล้ว': 'Access disabled', 'เปิดสิทธิ์แล้ว': 'Access enabled',
 
 // ── หน้าเบิก จ่าย คืน ย้าย ──

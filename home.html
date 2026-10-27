@@ -264,8 +264,12 @@ function homeTx(th, en){
   return window.TEF_LANG === 'en' ? en : th;
 }
 function homeDataTx(value){
+  if (Array.isArray(value)) return value.map(homeDataTx).join(', ');
   var text = String(value == null ? '' : value);
-  return window.TEF_LANG === 'en' && window.TEF_T ? window.TEF_T(text) : text;
+  if (window.TEF_LANG !== 'en' || !window.TEF_T) return text;
+  var translated = window.TEF_T(text);
+  if (translated !== text || text.indexOf(',') < 0) return translated;
+  return text.split(/\s*,\s*/).map(function(part){ return window.TEF_T(part); }).join(', ');
 }
 function roleEnglish(kind){
   return kind === 'admin' ? 'Admin' : (kind === 'staff' ? 'TEF Staff' : 'External user');
