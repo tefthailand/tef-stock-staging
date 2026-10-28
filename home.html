@@ -263,6 +263,14 @@ function roleKind(){
 function homeTx(th, en){
   return window.TEF_LANG === 'en' ? en : th;
 }
+function homeDataTx(value){
+  if (Array.isArray(value)) return value.map(homeDataTx).join(', ');
+  var text = String(value == null ? '' : value);
+  if (window.TEF_LANG !== 'en' || !window.TEF_T) return text;
+  var translated = window.TEF_T(text);
+  if (translated !== text || text.indexOf(',') < 0) return translated;
+  return text.split(/\s*,\s*/).map(function(part){ return window.TEF_T(part); }).join(', ');
+}
 function roleEnglish(kind){
   return kind === 'admin' ? 'Admin' : (kind === 'staff' ? 'TEF Staff' : 'External user');
 }
@@ -697,19 +705,19 @@ function renderAdmin(app, A){
   });
 
   // ผู้ใช้ภายนอก
-  app.appendChild(section('ผู้ใช้ภายนอก (Gmail ทั่วไป)', A.externals.length, 'sec-ext'));
-  if (!A.externals.length) { app.appendChild(el('div', 'empty', 'ยังไม่มีผู้กรอกแบบสอบถาม')); return; }
+  app.appendChild(section(homeTx('ผู้ใช้ภายนอก (Gmail ทั่วไป)', 'External users (Gmail)'), A.externals.length, 'sec-ext'));
+  if (!A.externals.length) { app.appendChild(el('div', 'empty', homeTx('ยังไม่มีผู้กรอกแบบสอบถาม', 'No survey responses yet'))); return; }
   var wrap = el('div', 'card scroll');
   var tb = el('table');
-  var hr = el('tr'); ['ชื่อ', 'หน่วยงาน / สโมสร', 'เบอร์โทร', 'ต้องการ', 'วัตถุประสงค์', 'สถานะ', ''].forEach(function(x){ hr.appendChild(el('th', null, x)); });
+  var hr = el('tr'); [['ชื่อ', 'Name'], ['หน่วยงาน / สโมสร', 'Organisation / Club'], ['เบอร์โทร', 'Phone'], ['ต้องการ', 'Needs'], ['วัตถุประสงค์', 'Purpose'], ['สถานะ', 'Status'], ['', '']].forEach(function(x){ hr.appendChild(el('th', null, homeTx(x[0], x[1]))); });
   tb.appendChild(hr);
   A.externals.forEach(function(u){
     var tr = el('tr', u.active ? '' : 'off');
     var nm = el('td'); nm.appendChild(el('div', null, u.name)); nm.appendChild(el('div', 'meta', u.email)); tr.appendChild(nm);
-    tr.appendChild(el('td', null, u.org)); tr.appendChild(el('td', null, u.phone)); tr.appendChild(el('td', null, u.want)); tr.appendChild(el('td', null, u.purpose));
-    var s = el('td'); s.appendChild(el('span', 'tag' + (u.active ? ' ok' : ''), u.active ? 'ใช้งานได้' : 'ปิดสิทธิ์')); tr.appendChild(s);
-    var a = el('td'); var bb = el('button', 'ghost', u.active ? 'ปิดสิทธิ์' : 'เปิดสิทธิ์'); a.appendChild(bb); tr.appendChild(a);
-    twoStep(bb, 'ยืนยัน', function(btn, orig){ act('homeSetExternal', [u.email, !u.active], btn, orig, (u.active ? 'ปิดสิทธิ์แล้ว ' : 'เปิดสิทธิ์แล้ว ') + u.name); });
+    tr.appendChild(el('td', null, u.org)); tr.appendChild(el('td', null, u.phone)); tr.appendChild(el('td', null, homeDataTx(u.want))); tr.appendChild(el('td', null, homeDataTx(u.purpose)));
+    var s = el('td'); s.appendChild(el('span', 'tag' + (u.active ? ' ok' : ''), homeTx(u.active ? 'ใช้งานได้' : 'ปิดสิทธิ์', u.active ? 'Active' : 'Disabled'))); tr.appendChild(s);
+    var a = el('td'); var bb = el('button', 'ghost', homeTx(u.active ? 'ปิดสิทธิ์' : 'เปิดสิทธิ์', u.active ? 'Disable access' : 'Enable access')); a.appendChild(bb); tr.appendChild(a);
+    twoStep(bb, homeTx('ยืนยัน', 'Confirm'), function(btn, orig){ act('homeSetExternal', [u.email, !u.active], btn, orig, homeTx(u.active ? 'ปิดสิทธิ์แล้ว ' : 'เปิดสิทธิ์แล้ว ', u.active ? 'Access disabled ' : 'Access enabled ') + u.name); });
     tb.appendChild(tr);
   });
   wrap.appendChild(tb); app.appendChild(wrap);

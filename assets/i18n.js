@@ -107,7 +107,7 @@ var D = {
 'รายการเก่า ไม่มีข้อมูลละเอียด': 'Legacy entry, no details', 'กดอีกครั้งเพื่อลงบัญชีรับคืน': 'Click again to record the return', 'รับคืนแล้ว': 'Return received',
 'กรุณาระบุเหตุผล': 'Please provide a reason', 'บันทึกไม่รับคืนแล้ว': 'Return rejected', 'ไม่มีเอกสารเกินกำหนด': 'No overdue documents',
 'ยังไม่มีผู้กรอกแบบสอบถาม': 'No survey responses yet', 'ชื่อ': 'Name', 'หน่วยงาน / สโมสร': 'Organisation / Club', 'เบอร์โทร': 'Phone', 'ต้องการ': 'Needs',
-'วัตถุประสงค์': 'Purpose', 'ใช้งานได้': 'Active', 'ปิดสิทธิ์': 'Disable access', 'เปิดสิทธิ์': 'Enable access', 'ยืนยัน': 'Confirm',
+'วัตถุประสงค์': 'Purpose', 'ขอเบิก': 'Borrow', 'รอรับ (จ่าย)': 'Awaiting issue', 'คืน': 'Return', 'ใช้งานได้': 'Active', 'ปิดสิทธิ์': 'Disable access', 'เปิดสิทธิ์': 'Enable access', 'ยืนยัน': 'Confirm',
 'ปิดสิทธิ์แล้ว': 'Access disabled', 'เปิดสิทธิ์แล้ว': 'Access enabled',
 
 // ── หน้าเบิก จ่าย คืน ย้าย ──
@@ -221,7 +221,8 @@ var D = {
 'พิมพ์ TEF- หรือชื่อของ เช่น เสื้อโปโล': 'Type TEF- or an item name, e.g. polo shirt', 'ชื่อผู้นับรอบนี้': 'Counter name', 'เลือกสถานะ': 'Choose status',
 'กรุณาเลือกรายการก่อน': 'Please choose an item first', 'กำลังบันทึกลงชีต…': 'Saving to sheet…', 'ยอดเดิม': 'Previous balance', 'ไม่ทราบ': 'Unknown',
 'ดึงข้อมูลไม่สำเร็จ': 'Could not fetch data', 'ยังไม่มีในทะเบียน': 'Not in register', 'นับแล้ว': 'Counted',
-'กำลังโหลดรูป…': 'Loading photo…', 'ยังไม่มีรูปของรายการนี้': 'No photo for this item',
+'กำลังโหลดรูป': 'Loading photo', 'กำลังโหลดรูป…': 'Loading photo…', 'ไม่มีรูป': 'No photo',
+'รูปภาพประกอบรายการ': 'Item photo', 'ยังไม่มีรูปของรายการนี้': 'No photo for this item',
 'โหลดรูปไม่สำเร็จ ลองเลือกใหม่อีกครั้ง': 'Could not load photo. Try selecting again',
 'ยอดส่วนต่าง — ระบบคำนวณให้อัตโนมัติ': 'Difference — calculated automatically', '* จำเป็นเมื่อยอดไม่ตรง': '* Required when counts differ',
 'เลขที่รายการกระทบยอด': 'Reconciliation no.', 'บันทึกเมื่อ': 'Saved at', 'รหัส / ชื่อรายการ': 'Code / Item name', 'ขึ้นชั้น / สถานที่เก็บ': 'Shelved / Storage location',
