@@ -9,7 +9,8 @@
 <script src="assets/tef-api.js"></script>
 <script src="assets/i18n.js"></script>
 <script src="assets/tef-shell.js"></script>
-<script>window.__ADD = (new URLSearchParams(location.search).get('add') || '').replace(/[^A-Za-z0-9:,_\-]/g, '').slice(0, 600);</script>
+<script>window.__ADD = (new URLSearchParams(location.search).get('add') || '').replace(/[^A-Za-z0-9:,_\-]/g, '').slice(0, 600);
+window.__MODE = new URLSearchParams(location.search).get('mode') === 'dis' ? 'dis' : '';   // v35.10 ?mode=dis จากปุ่ม "ไปหน้าจ่าย" ของหน้ารายการพัสดุ</script>
 <base target="_top">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -795,6 +796,7 @@ function onItems(list){
   $('itemList').innerHTML = ITEMS.map(i =>
     '<option value="' + esc(i.code) + '">' + esc(i.code + ' — ' + i.name + ' (คงเหลือ ' + i.balance + ')') + '</option>'
   ).join('');
+  if (window.__MODE === 'dis') { window.__MODE = ''; setMode('dis'); }   // v35.10 เปิดแท็บจ่ายก่อนใส่ของ (setMode ล้างรายการ · ไม่ใช่แอดมิน = กลับเป็นเบิก)
   if (window.__ADD) { const a = window.__ADD; window.__ADD = ''; loadRad(() => applyAdd(a)); }
   else if (!RAD) loadRad();
 }
@@ -1283,7 +1285,7 @@ function run(fn, payload){
     .withSuccessHandler(r => {
       document.querySelectorAll('.btn-tef').forEach(b => b.disabled = false);
       LAST.result = r;
-      if (fn === 'createRequisition') {          // v35: ส่งคำขอแล้ว ล้างตะกร้าของหน้ารายการพัสดุ และเอา ?add= ออก กันรีเฟรชแล้วใส่ซ้ำ
+      if (fn === 'createRequisition' || fn === 'createDisbursement') {   // v35: ส่งคำขอแล้ว ล้างตะกร้าของหน้ารายการพัสดุ และเอา ?add= ออก กันรีเฟรชแล้วใส่ซ้ำ · v35.10 จ่ายขาดด้วย
         try { sessionStorage.removeItem('tef_cart'); } catch (x) {}
         try { if (/[?&]add=/.test(location.search)) history.replaceState(null, '', location.pathname); } catch (x) {}
       }

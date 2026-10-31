@@ -96,6 +96,8 @@ body{margin:0;background:var(--tef-bg);color:var(--tef-text);font-family:var(--t
 .vt .q span{min-width:28px;text-align:center;font-weight:600}
 .vt .z{color:var(--tef-danger)}
 .mod .foot{padding:12px 18px 18px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.mod .foot .go2{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.btn.dis{background:var(--tef-ocean)}.btn.dis:hover{background:var(--tef-navy)}
 .adm{background:#fff;border:1px dashed var(--tef-ocean);border-radius:10px;padding:12px 14px;margin:10px 0;font-size:13px}
 .adm summary{cursor:pointer;font-weight:600;color:var(--tef-ocean-text)}
 .adm .bar{height:8px;background:var(--tef-ocean-light);border-radius:5px;overflow:hidden;margin:8px 0}
@@ -156,6 +158,7 @@ body{margin:0;background:var(--tef-bg);color:var(--tef-text);font-family:var(--t
 <div class="bask" id="bask"><div class="in">
 <div class="t" id="baskT"></div>
 <button class="btn ghost" id="baskClr" type="button">ล้าง</button>
+<a class="btn dis" id="baskGoDis" target="_top" href="#" style="display:none">ไปหน้าจ่าย</a>
 <a class="btn" id="baskGo" target="_top" href="#">ไปหน้าเบิก</a>
 </div></div>
 <div class="mod" id="mod"><div class="box" id="modBox"></div></div>
@@ -492,8 +495,10 @@ var h = '<div class="top"><div class="pic"><div class="big" id="mBig">' + (c.ph 
 (Object.keys(locs).length ? '<div class="kv">ที่เก็บ <b>' + esc(Object.keys(locs).join(' / ')) + '</b></div>' : '') +
 (Object.keys(conds).length ? '<div class="kv">สภาพ <b>' + esc(Object.keys(conds).join(' / ')) + '</b></div>' : '') +
 '</div></div>' +
-'<div style="overflow-x:auto"><table class="vt"><thead><tr><th>' + (c.grp ? 'ไซส์ / รหัส' : 'รหัส') + '</th><th style="text-align:right">คงเหลือ</th><th>จำนวนที่จะเบิก</th>' + (D.admin ? '<th></th>' : '') + '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
-'<div class="foot"><button class="btn ghost" id="mClose" type="button">ปิด</button><a class="btn" id="mGo" target="_top" href="#">ไปหน้าเบิก</a></div>';
+'<div style="overflow-x:auto"><table class="vt"><thead><tr><th>' + (c.grp ? 'ไซส์ / รหัส' : 'รหัส') + '</th><th style="text-align:right">คงเหลือ</th><th>' + (D.admin ? disTxt('จำนวนที่จะเบิก / จ่าย', 'Qty to borrow / issue') : 'จำนวนที่จะเบิก') + '</th>' + (D.admin ? '<th></th>' : '') + '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
+'<div class="foot"><button class="btn ghost" id="mClose" type="button">ปิด</button><span class="go2">' +
+(D.admin ? '<a class="btn dis" id="mGoDis" target="_top" href="#">' + disTxt('ไปหน้าจ่าย', 'Go to issue') + '</a>' : '') +   // v35.10 แอดมิน: จ่ายขาดได้จากทุกรายการ
+'<a class="btn" id="mGo" target="_top" href="#">ไปหน้าเบิก</a></span></div>';
 $('modBox').innerHTML = h; $('mod').style.display = 'flex'; document.body.style.overflow = 'hidden';
 if (c.rad) radioUnitsInto(c.code);
 $('mClose').addEventListener('click', closeMod);
@@ -552,7 +557,13 @@ var href = window.TEFAPI ? TEFAPI.url('index', 'add=' + encodeURIComponent(q))  
   : (D.app || '#') + '?page=index&add=' + encodeURIComponent(q);
 cartSave();
 $('baskGo').href = href; var cn = $('cartN'); if (cn) { cn.textContent = codes.length; cn.style.display = codes.length ? 'block' : 'none'; } var g = $('mGo'); if (g) { g.href = href; g.style.display = codes.length ? '' : 'none'; }
+// v35.10 ไปหน้าจ่าย (เฉพาะแอดมิน เหมือนแท็บจ่ายในหน้าเบิก) · ของในตะกร้าไปลงแท็บจ่ายให้เลย
+var hrefDis = window.TEFAPI ? TEFAPI.url('index', 'mode=dis&add=' + encodeURIComponent(q))
+  : (D.app || '#') + '?page=index&mode=dis&add=' + encodeURIComponent(q);
+var bd = $('baskGoDis'); if (bd) { bd.href = hrefDis; bd.textContent = disTxt('ไปหน้าจ่าย', 'Go to issue'); bd.style.display = D.admin ? '' : 'none'; }
+var gd = $('mGoDis'); if (gd) { gd.href = hrefDis; gd.style.display = codes.length && D.admin ? '' : 'none'; }
 }
+function disTxt(th, en){ return window.TEF_LANG === 'en' ? en : th; }   // v35.10 ข้อความใหม่ แปลในหน้านี้ ไม่ต้องแก้ i18n.js
 function buildAdmin(){
 if (!D.admin) return;
 if (!window.JSZip && !document.getElementById('jszipLib')) {   // v35: ตัวแตกไฟล์ ZIP โหลดเฉพาะผู้ดูแล
