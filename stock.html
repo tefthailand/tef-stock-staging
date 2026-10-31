@@ -498,7 +498,7 @@ var h = '<div class="top"><div class="pic"><div class="big" id="mBig">' + (c.ph 
 '<div style="overflow-x:auto"><table class="vt"><thead><tr><th>' + (c.grp ? 'ไซส์ / รหัส' : 'รหัส') + '</th><th style="text-align:right">คงเหลือ</th><th>' + (D.admin ? disTxt('จำนวนที่จะเบิก / จ่าย', 'Qty to borrow / issue') : 'จำนวนที่จะเบิก') + '</th>' + (D.admin ? '<th></th>' : '') + '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
 '<div class="foot"><button class="btn ghost" id="mClose" type="button">ปิด</button><span class="go2">' +
 (D.admin ? '<a class="btn dis" id="mGoDis" target="_top" href="#">' + disTxt('ไปหน้าจ่าย', 'Go to issue') + '</a>' : '') +   // v35.10 แอดมิน: จ่ายขาดได้จากทุกรายการ
-'<a class="btn" id="mGo" target="_top" href="#">ไปหน้าเบิก</a></span></div>';
+'<a class="btn" id="mGo" target="_top" href="#">ไปหน้าเบิก</a></span><div class="kv" id="mHint" style="flex-basis:100%;text-align:right"></div></div>';
 $('modBox').innerHTML = h; $('mod').style.display = 'flex'; document.body.style.overflow = 'hidden';
 if (c.rad) radioUnitsInto(c.code);
 $('mClose').addEventListener('click', closeMod);
@@ -525,6 +525,17 @@ btn.style.display = 'none'; $('mBig').innerHTML = ICON; $('mTh').innerHTML = '';
 });
 
 baskUi();
+// v35.10.1 ปุ่มไปหน้าเบิก/จ่ายขึ้นตลอด · ยังไม่ได้เลือกจำนวน: รายการเดียว = ใส่ 1 ชิ้นให้แล้วไปเลย · หลายไซส์ = บอกให้กด + ก่อน
+['mGo', 'mGoDis'].forEach(function (id) {
+var a = $(id); if (!a) return;
+a.addEventListener('click', function (e) {
+if (Object.keys(BASK).length) return;
+var can = c.items.filter(function (x) { return x.b > 0; });
+if (can.length === 1) { step(can[0].c, 1, c); return; }     // baskUi อัปเดตลิงก์ก่อนเบราว์เซอร์เปิดหน้า
+e.preventDefault();
+$('mHint').textContent = can.length ? disTxt('กด + เลือกไซส์และจำนวนก่อน', 'Tap + to choose a size and quantity first') : disTxt('รายการนี้หมดแล้ว', 'This item is out of stock');
+});
+});
 if (c.ph) google.script.run.withSuccessHandler(function (arr) { gallery(arr || []); }).stockPhotoSet(c.ph);
 }
 function gallery(arr){
@@ -556,12 +567,13 @@ var q = codes.map(function (k) { return k + ':' + BASK[k].q; }).join(',');
 var href = window.TEFAPI ? TEFAPI.url('index', 'add=' + encodeURIComponent(q))   // v35: ไปหน้าเบิก request.html ตรง ไม่ผ่านหน้า Login
   : (D.app || '#') + '?page=index&add=' + encodeURIComponent(q);
 cartSave();
-$('baskGo').href = href; var cn = $('cartN'); if (cn) { cn.textContent = codes.length; cn.style.display = codes.length ? 'block' : 'none'; } var g = $('mGo'); if (g) { g.href = href; g.style.display = codes.length ? '' : 'none'; }
+$('baskGo').href = href; var cn = $('cartN'); if (cn) { cn.textContent = codes.length; cn.style.display = codes.length ? 'block' : 'none'; } var g = $('mGo'); if (g) { g.href = href; g.style.display = ''; }   // v35.10.1 ขึ้นตลอด (เดิมซ่อนจนกว่าจะกด +)
+var mh = $('mHint'); if (mh && codes.length) mh.textContent = '';
 // v35.10 ไปหน้าจ่าย (เฉพาะแอดมิน เหมือนแท็บจ่ายในหน้าเบิก) · ของในตะกร้าไปลงแท็บจ่ายให้เลย
 var hrefDis = window.TEFAPI ? TEFAPI.url('index', 'mode=dis&add=' + encodeURIComponent(q))
   : (D.app || '#') + '?page=index&mode=dis&add=' + encodeURIComponent(q);
 var bd = $('baskGoDis'); if (bd) { bd.href = hrefDis; bd.textContent = disTxt('ไปหน้าจ่าย', 'Go to issue'); bd.style.display = D.admin ? '' : 'none'; }
-var gd = $('mGoDis'); if (gd) { gd.href = hrefDis; gd.style.display = codes.length && D.admin ? '' : 'none'; }
+var gd = $('mGoDis'); if (gd) { gd.href = hrefDis; gd.style.display = D.admin ? '' : 'none'; }
 }
 function disTxt(th, en){ return window.TEF_LANG === 'en' ? en : th; }   // v35.10 ข้อความใหม่ แปลในหน้านี้ ไม่ต้องแก้ i18n.js
 function buildAdmin(){
